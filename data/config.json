@@ -62,8 +62,8 @@
   },
   
   "loot": {
-    "baseDropChance": 0.025,
-    "eliteDropChance": 0.15,
+    "baseDropChance": 0.05,
+    "eliteDropChance": 0.25,
     "bossDropChance": 1.0,
     "bossGuaranteedRarity": "rare",
     
