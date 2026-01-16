@@ -414,6 +414,12 @@ const Game = {
     Audio.playMusic?.('hub');
   },
   
+  // Called by START RUN button on startModal
+  start() {
+    console.log('🎮 Starting game from start modal...');
+    this.showHub();
+  },
+  
   renderHubUI() {
     // Update hub stats
     const scrapEl = document.getElementById('hubScrap');
