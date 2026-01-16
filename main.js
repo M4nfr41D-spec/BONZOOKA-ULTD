@@ -48,7 +48,7 @@ const Game = {
   // ========== INITIALIZATION ==========
   
   async init() {
-    console.log('ðŸš€ BONZOOKAA Exploration Mode initializing...');
+    console.log(' BONZOOKAA Exploration Mode initializing...');
     
     // Setup canvas
     this.canvas = document.getElementById('gameCanvas');
@@ -101,7 +101,7 @@ const Game = {
     this.lastTime = performance.now();
     requestAnimationFrame((t) => this.loop(t));
     
-    console.log('âœ… Exploration mode ready');
+    console.log('[OK] Exploration mode ready');
   },
   
   resize(force = false) {
@@ -191,7 +191,7 @@ const Game = {
       this.render(dt);
       
     } catch (error) {
-      console.error('âŒ Error in game loop:', error);
+      console.error("[ERR] Error in game loop:", error);
     }
     
     requestAnimationFrame((t) => this.loop(t));
@@ -416,7 +416,7 @@ const Game = {
   
   // Called by START RUN button on startModal
   start() {
-    console.log('🎮 Starting game from start modal...');
+    console.log('[GAME] Starting game from start modal...');
     this.showHub();
   },
   
@@ -445,7 +445,7 @@ const Game = {
         html += `
           <div class="act-card ${unlocked ? '' : 'locked'} ${completed ? 'completed' : ''}"
                onclick="${unlocked ? `Game.startAct('${actId}')` : ''}">
-            <div class="act-icon">${completed ? 'âœ…' : (unlocked ? 'ðŸš€' : 'ðŸ”’')}</div>
+            <div class="act-icon">${completed ? '[OK]' : (unlocked ? '' : '')}</div>
             <div class="act-info">
               <h3>${act.name}</h3>
               <p>${act.description || ''}</p>
@@ -467,7 +467,7 @@ const Game = {
   // ========== GAME FLOW ==========
   
   startAct(actId) {
-    console.log(`ðŸŽ® Starting ${actId}...`);
+    console.log(` Starting ${actId}...`);
     
     // Generate seed (can be customized)
     const seed = SeededRandom.fromString(actId + '_' + Date.now());
@@ -492,7 +492,7 @@ const Game = {
     
     // Announce
     const actName = State.data.acts?.[actId]?.name || actId;
-    this.announce(`âš”ï¸ ${actName.toUpperCase()}`, 'boss');
+    this.announce(`[*] ${actName.toUpperCase()}`, "boss");
     
     UI.renderAll();
   },
@@ -530,7 +530,7 @@ const Game = {
     
     Save.save();
     
-    this.announce('âœ¨ ACT COMPLETE!', 'boss');
+    this.announce('[+] ACT COMPLETE!', 'boss');
   },
   
   onDeath() {
@@ -600,7 +600,7 @@ const Game = {
     document.getElementById('levelBadge').textContent = State.meta.level;
     
     // Show zone instead of wave
-    const zoneText = zone?.isBossZone ? 'âš ï¸ BOSS' : `ZONE ${World.zoneIndex + 1}`;
+    const zoneText = zone?.isBossZone ? "[!] BOSS" : `ZONE ${World.zoneIndex + 1}`;
     document.getElementById('waveDisplay').textContent = zoneText;
     
     // XP
@@ -662,13 +662,13 @@ const Game = {
     }
     Save.save();
     this.renderHubUI();
-    console.log('ðŸ”“ All acts unlocked');
+    console.log(' All acts unlocked');
   },
   
   debugTeleport(zoneIndex) {
     if (World.currentZone) {
       World.loadZone(zoneIndex);
-      console.log(`ðŸ“ Teleported to zone ${zoneIndex}`);
+      console.log(` Teleported to zone ${zoneIndex}`);
     }
   },
   

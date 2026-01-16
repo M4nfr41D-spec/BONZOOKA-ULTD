@@ -909,11 +909,11 @@ html, body {
   <div id="topBar">
     <div class="top-section">
       <div class="resource-box cells">
-        <span class="icon">âš¡</span>
+        <span class="icon">⚡</span>
         <span id="hudCells">0</span>
       </div>
       <div class="resource-box scrap">
-        <span class="icon">ðŸ’°</span>
+        <span class="icon">$</span>
         <span id="hudScrap">0</span>
       </div>
     </div>
@@ -936,14 +936,14 @@ html, body {
   <!-- LEFT PANEL -->
   <div id="leftPanel">
     <div class="panel">
-      <div class="panel-header"><h3>âš”ï¸ Equipment</h3></div>
+      <div class="panel-header"><h3>EQUIPMENT</h3></div>
       <div class="panel-inner">
         <div class="equipment-grid" id="equipmentGrid"></div>
       </div>
     </div>
     
     <div class="panel">
-      <div class="panel-header"><h3>ðŸ“¦ Stash</h3></div>
+      <div class="panel-header"><h3>STASH</h3></div>
       <div class="panel-inner">
         <div class="stash-grid" id="stashGrid"></div>
       </div>
@@ -966,20 +966,20 @@ html, body {
     </div>
     
     <div id="announcement"></div>
-    <div id="controlsHint"><kbd>WASD</kbd> Move Â· <kbd>Mouse</kbd> Aim Â· <kbd>LMB</kbd> Fire</div>
+    <div id="controlsHint"><kbd>WASD</kbd> Move · <kbd>Mouse</kbd> Aim · <kbd>LMB</kbd> Fire</div>
   </div>
   
   <!-- RIGHT PANEL -->
   <div id="rightPanel">
     <div class="panel">
-      <div class="panel-header"><h3>ðŸ“Š Ship Stats</h3></div>
+      <div class="panel-header"><h3>SHIP STATS</h3></div>
       <div class="panel-inner">
         <div class="stats-grid" id="shipStats"></div>
       </div>
     </div>
     
     <div class="panel">
-      <div class="panel-header"><h3>ðŸŽ–ï¸ Pilot Stats</h3></div>
+      <div class="panel-header"><h3>PILOT STATS</h3></div>
       <div class="panel-inner">
         <div class="points-badge stat-points">Points: <span class="points-num" id="statPointsNum">0</span></div>
         <div class="pilot-stats-list" id="pilotStats"></div>
@@ -987,7 +987,7 @@ html, body {
     </div>
     
     <div class="panel">
-      <div class="panel-header"><h3>âš”ï¸ Skills</h3></div>
+      <div class="panel-header"><h3>SKILLS</h3></div>
       <div class="panel-inner">
         <div class="points-badge">Points: <span class="points-num" id="skillPointsNum">0</span></div>
         <div class="skill-tree-container" id="skillTrees"></div>
@@ -1005,10 +1005,10 @@ html, body {
     <div class="panel">
       <div class="panel-inner">
         <div class="hub-header">
-          <h1>ðŸ›¸ SPACE STATION</h1>
+          <h1>SPACE STATION</h1>
           <div class="hub-stats">
-            <div class="hub-stat"><span class="icon">ðŸ”©</span><span id="hubScrap">0</span></div>
-            <div class="hub-stat"><span class="icon">â­</span>LVL <span id="hubLevel">1</span></div>
+            <div class="hub-stat"><span class="icon">$</span><span id="hubScrap">0</span></div>
+            <div class="hub-stat"><span class="icon">*</span>LVL <span id="hubLevel">1</span></div>
           </div>
         </div>
         
@@ -1020,10 +1020,10 @@ html, body {
         </div>
         
         <div class="hub-buttons">
-          <button class="btn" onclick="document.getElementById('sidePanel').classList.add('open')">ðŸ“¦ INVENTORY</button>
-          <button class="btn" onclick="document.getElementById('pilotPanel').classList.add('open')">ðŸ‘¨â€ðŸš€ PILOT</button>
+          <!-- Inventory visible in left panel -->
+          <!-- Pilot stats visible in right panel -->
           <button class="btn small" onclick="Game.debugAddResources()">+Debug</button>
-          <button class="btn small" onclick="Game.debugUnlockAll()">ðŸ”“All</button>
+          <button class="btn small" onclick="Game.debugUnlockAll()"></button>
         </div>
       </div>
     </div>
@@ -1058,7 +1058,7 @@ html, body {
   <div class="modal">
     <div class="panel" style="border-color: var(--danger);">
       <div class="panel-inner">
-        <h2>ðŸ’€ DESTROYED</h2>
+        <h2>DESTROYED</h2>
         <div class="modal-stats">
           <div class="modal-stat"><span class="label">Wave</span><span class="value" id="deathWave">0</span></div>
           <div class="modal-stat"><span class="label">Kills</span><span class="value" id="deathKills">0</span></div>
@@ -1078,14 +1078,14 @@ html, body {
 <div class="modal-overlay" id="vendorModal">
   <div class="modal" style="min-width: 520px;">
     <div class="panel">
-      <div class="panel-header"><h3>ðŸ›’ Vendor</h3></div>
+      <div class="panel-header"><h3>VENDOR</h3></div>
       <div class="panel-inner">
         <div class="resource-box cells" style="justify-content: center; margin: 0 auto 15px;">
-          <span class="icon">âš¡</span>
+          <span class="icon">⚡</span>
           <span id="vendorCells">0</span>
         </div>
         <div class="vendor-grid" id="vendorGrid"></div>
-        <button class="btn primary" onclick="Game.closeVendor()">CONTINUE â†’</button>
+        <button class="btn primary" onclick="Game.closeVendor()">CONTINUE </button>
       </div>
     </div>
   </div>
