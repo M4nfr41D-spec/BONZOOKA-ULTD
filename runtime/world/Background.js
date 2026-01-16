@@ -45,10 +45,16 @@ export const Background = {
   // Decide tile per act/biome (can be overridden via config).
   _tileForAct(act) {
     const cfg = State.data.config?.background || {};
-    if (cfg.tileByAct && cfg.tileByAct[act?.id]) return cfg.tileByAct[act.id];
+    
+    // Try to match by act id (act might be object with id, or string, or have id property)
+    const actId = typeof act === 'string' ? act : (act?.id || State.run?.currentAct);
+    if (cfg.tileByAct && actId && cfg.tileByAct[actId]) {
+      return cfg.tileByAct[actId];
+    }
 
     // Default mapping for the provided test tiles.
-    switch (act?.biome) {
+    const biome = act?.biome;
+    switch (biome) {
       case 'void':
         return './assets/backgrounds/tile_void.webp';
       case 'nebula':

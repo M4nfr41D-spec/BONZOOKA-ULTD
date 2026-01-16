@@ -95,7 +95,7 @@ export const SceneManager = {
         // Initialize player HP
         State.modules.Stats?.initializeHP();
       } catch (err) {
-        console.error('âŒ startAct failed:', err);
+        console.error('[] startAct failed:', err);
 
         // Fail-safe: never get stuck in loading
         this.currentScene = 'hub';

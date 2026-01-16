@@ -11,6 +11,7 @@ import { MapGenerator } from './MapGenerator.js';
 import { Camera } from './Camera.js';
 import { SeededRandom } from './SeededRandom.js';
 import { DepthRules } from './DepthRules.js';
+import { Background } from './Background.js';
 
 export const World = {
   currentZone: null,
@@ -55,11 +56,11 @@ export const World = {
     DepthRules.maybeUnlock(depth, this.currentAct);
     DepthRules.recordDepth(depth);
 
-    // Boss interval: default to act.zones (number) or 4
-    const bossInterval = (typeof this.currentAct.zones === 'number' && this.currentAct.zones > 0)
-      ? this.currentAct.zones
-      : 4;
-    const isBossZone = (depth % bossInterval) === 0;
+    // Boss interval: use config.exploration.bossEveryNZones (default 10)
+    const bossInterval = State.data.config?.exploration?.bossEveryNZones || 10;
+    const isBossZone = depth > 0 && (depth % bossInterval) === 0;
+    
+    console.log(`[World] Zone ${depth}: bossInterval=${bossInterval}, isBoss=${isBossZone}`);
 
     // Sample active modifiers for this zone
     const activeMods = DepthRules.sampleActive(depth, this.currentAct);
@@ -72,6 +73,9 @@ export const World = {
 
     this.currentZone.depth = depth;
     this.currentZone.mods = activeMods;
+
+    // Prepare background for this zone
+    Background.prepareZone(this.currentZone, zoneSeed, this.currentAct);
 
     this.zoneIndex = index;
     this.activeEnemies = [];
@@ -268,7 +272,7 @@ export const World = {
     spawn.enemyId = enemy.id;
     
     // Announce boss
-    State.ui?.showAnnouncement?.(`âš ï¸ ${enemy.name || 'BOSS'} APPEARS!`);
+    State.ui?.showAnnouncement?.(`[] ${enemy.name || 'BOSS'} APPEARS!`);
   },
   
   // Despawn enemy (too far)
@@ -301,7 +305,7 @@ export const World = {
   
   // Boss killed - spawn portal
   onBossKilled() {
-    State.ui?.showAnnouncement?.('âœ¨ PORTAL OPENED!');
+    State.ui?.showAnnouncement?.("[+] PORTAL OPENED!");
     
     // Spawn portal to hub
     this.currentZone.portals.push({
