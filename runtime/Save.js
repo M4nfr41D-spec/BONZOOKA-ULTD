@@ -33,10 +33,10 @@ export const Save = {
       }
       
       localStorage.setItem(SAVE_KEY, JSON.stringify(saveData));
-      console.log('ðŸ’¾ Game saved');
+      console.log(' Game saved');
       return true;
     } catch (error) {
-      console.error('âŒ Save failed:', error);
+      console.error('[] Save failed:', error);
       return false;
     }
   },
@@ -46,7 +46,7 @@ export const Save = {
     try {
       const data = localStorage.getItem(SAVE_KEY);
       if (!data) {
-        console.log('ðŸ“­ No save file found, using defaults');
+        console.log(' No save file found, using defaults');
         return false;
       }
       
@@ -54,17 +54,17 @@ export const Save = {
       
       // Version migration if needed
       if (parsed.version !== 2) {
-        console.log('ðŸ”„ Migrating save from version', parsed.version);
+        console.log(' Migrating save from version', parsed.version);
         this.migrate(parsed);
       }
       
       // Merge loaded data with default state (preserves new properties)
       this.mergeState(parsed.meta);
       
-      console.log('ðŸ“‚ Save loaded from', new Date(parsed.timestamp).toLocaleString());
+      console.log(' Save loaded from', new Date(parsed.timestamp).toLocaleString());
       return true;
     } catch (error) {
-      console.error('âŒ Load failed:', error);
+      console.error('[] Load failed:', error);
       return this.loadBackup();
     }
   },
@@ -77,10 +77,10 @@ export const Save = {
       
       const parsed = JSON.parse(data);
       this.mergeState(parsed.meta);
-      console.log('ðŸ“‚ Loaded from backup');
+      console.log(' Loaded from backup');
       return true;
     } catch (error) {
-      console.error('âŒ Backup load also failed:', error);
+      console.error('[] Backup load also failed:', error);
       return false;
     }
   },
@@ -118,7 +118,7 @@ export const Save = {
   delete() {
     localStorage.removeItem(SAVE_KEY);
     localStorage.removeItem(BACKUP_KEY);
-    console.log('ðŸ—‘ï¸ Save deleted');
+    console.log(' Save deleted');
   },
   
   // Export save as JSON string (for backup)
@@ -138,7 +138,7 @@ export const Save = {
       this.load();
       return true;
     } catch (error) {
-      console.error('âŒ Import failed:', error);
+      console.error('[] Import failed:', error);
       return false;
     }
   }

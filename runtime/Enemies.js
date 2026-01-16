@@ -77,12 +77,14 @@ export const Enemies = {
             lastAngle: 0
           };
           // Sprite: asset is 'nose up', so +PI/2 rotation offset in draw()
-          enemy.spritePath = './assets/enemies/enemy_sniper.png';
+          // Sprite removed - use fallback shape
+          enemy.spritePath = null;
           enemy.spriteRotOffset = Math.PI / 2;
         }
     
         if (enemy.abilities.includes('corruptDot')) {
-          enemy.spritePath = './assets/enemies/enemy_corrupted_spawn.png';
+          // Sprite removed - use fallback shape
+          enemy.spritePath = null;
           // Sprite: asset is 'nose right'
           enemy.spriteRotOffset = 0;
           enemy.dot = (enemyData && enemyData.dot) ? enemyData.dot : { duration: 4.0, tick: 0.5, dpsPctMaxHp: 0.01 };

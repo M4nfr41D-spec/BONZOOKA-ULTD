@@ -71,7 +71,7 @@ export const Leveling = {
     State.player.hp = State.player.maxHP;
     State.player.shield = State.player.maxShield;
     
-    console.log(`ðŸŽ‰ Level Up! Now level ${State.meta.level}`);
+    console.log(` Level Up! Now level ${State.meta.level}`);
     console.log(`  +${skillPerLevel} Skill Points, +${statPerLevel} Stat Points`);
     
     // Trigger UI notification
@@ -174,7 +174,7 @@ export const Leveling = {
     autoSave();
     
     const skill = State.data.skills[treeId].skills[skillId];
-    console.log(`ðŸ“– Learned ${skill.name} (Rank ${State.meta.skills[treeId][skillId]})`);
+    console.log(` Learned ${skill.name} (Rank ${State.meta.skills[treeId][skillId]})`);
     
     return true;
   },
@@ -197,7 +197,7 @@ export const Leveling = {
     autoSave();
     
     const stat = State.data.pilotStats[statId];
-    console.log(`ðŸ’ª ${stat.name} increased to ${State.meta.stats[statId]}`);
+    console.log(` ${stat.name} increased to ${State.meta.stats[statId]}`);
     
     return true;
   }

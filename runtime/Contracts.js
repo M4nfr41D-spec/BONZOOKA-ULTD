@@ -82,7 +82,7 @@ export const Contracts = {
     }
     if (missing.length) {
       const msg =
-        `âŒ DOM contract failed (${scope}). Missing IDs:\n` +
+        `[] DOM contract failed (${scope}). Missing IDs:\n` +
         missing.map(x => ` - ${x}`).join('\n');
       // Throwing is intentional: fail fast with a precise list.
       throw new Error(msg);

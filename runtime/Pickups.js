@@ -95,14 +95,14 @@ export const Pickups = {
       case 'cells':
         State.run.cells += pickup.value;
         this.spawnCollectEffect(pickup.x, pickup.y, '#00d4ff');
-        this.spawnFloatText(pickup.x, pickup.y, `+${pickup.value}âš¡`, '#00d4ff');
+        this.spawnFloatText(pickup.x, pickup.y, `+${pickup.value}+`, '#00d4ff');
         State.modules?.Audio?.playPickup('cell', pickup.x, pickup.y);
         break;
         
       case 'scrap':
         State.run.scrapEarned += pickup.value;
         this.spawnCollectEffect(pickup.x, pickup.y, '#ffd700');
-        this.spawnFloatText(pickup.x, pickup.y, `+${pickup.value}ðŸ’°`, '#ffd700');
+        this.spawnFloatText(pickup.x, pickup.y, `+${pickup.value} '#ffd700');
         break;
         
       case 'item':
@@ -116,7 +116,7 @@ export const Pickups = {
             // Stash full - convert to scrap
             const scrapValue = item.value;
             State.run.scrapEarned += scrapValue;
-            this.spawnFloatText(pickup.x, pickup.y, `FULL! +${scrapValue}ðŸ’°`, '#ff8800');
+            this.spawnFloatText(pickup.x, pickup.y, `FULL! +${scrapValue} '#ff8800');
           }
         }
         break;
@@ -125,7 +125,7 @@ export const Pickups = {
         const healed = pickup.value || 25;
         State.player.hp = Math.min(State.player.maxHP, State.player.hp + healed);
         this.spawnCollectEffect(pickup.x, pickup.y, '#00ff88');
-        this.spawnFloatText(pickup.x, pickup.y, `+${healed}â¤ï¸`, '#00ff88');
+        this.spawnFloatText(pickup.x, pickup.y, `+${healed}[]`, '#00ff88');
         break;
         
       case 'xp':
@@ -193,7 +193,7 @@ export const Pickups = {
           ctx.fillStyle = '#ffffff';
           ctx.font = 'bold 10px sans-serif';
           ctx.textAlign = 'center';
-          ctx.fillText('âš¡', pk.x, pk.y + 4);
+          ctx.fillText('+', pk.x, pk.y + 4);
           break;
           
         case 'scrap':

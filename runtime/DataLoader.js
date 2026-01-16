@@ -24,7 +24,7 @@ const DATA_FILES = [
 ];
 
 export async function loadAllData() {
-  console.log('ðŸ“¦ Loading game data...');
+  console.log(' Loading game data...');
   
   // Load main data files
   const promises = DATA_FILES.map(async (name) => {
@@ -35,10 +35,10 @@ export async function loadAllData() {
       }
       const data = await response.json();
       State.data[name] = data;
-      console.log(`  âœ“ ${name}.json loaded`);
+      console.log(`  [+] ${name}.json loaded`);
       return { name, success: true };
     } catch (error) {
-      console.error(`  âœ— ${name}.json failed:`, error.message);
+      console.error(`  [X] ${name}.json failed:`, error.message);
       return { name, success: false, error };
     }
   });
@@ -48,9 +48,9 @@ export async function loadAllData() {
   const failed = results.filter(r => !r.success);
   
   if (failed.length > 0) {
-    console.warn(`âš ï¸ ${failed.length} data files failed to load`);
+    console.warn(`[] ${failed.length} data files failed to load`);
   } else {
-    console.log('âœ… All game data loaded successfully');
+    console.log('[OK] All game data loaded successfully');
   }
   
   return failed.length === 0;

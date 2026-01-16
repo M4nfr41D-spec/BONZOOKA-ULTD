@@ -78,7 +78,7 @@ export const Invariants = {
     arr.splice(0, overflow);
 
     if (this.softFuseOnCaps) {
-      console.warn(`âš ï¸ SoftFuse: ${label} capped at ${max} (trimmed ${overflow})`);
+      console.warn(`[] SoftFuse: ${label} capped at ${max} (trimmed ${overflow})`);
     } else {
       const err = new Error(`InvariantFail: ${label} exceeded cap ${max} (len=${arr.length + overflow})`);
       err.code = 'INV_CAP_EXCEEDED';
@@ -200,7 +200,7 @@ export const Invariants = {
     try { localStorage.setItem('bonz_last_dump', safeJson(dump)); } catch {}
 
     // Always log a compact version
-    console.error('ðŸ§¯ BONZ Dump captured:', dump);
+    console.error(' BONZ Dump captured:', dump);
     return dump;
   }
 };

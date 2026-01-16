@@ -242,7 +242,10 @@ export const Bullets = {
   // Check for item drop
   checkLootDrop(killData) {
     const cfg = State.data.config?.loot;
-    if (!cfg) return;
+    if (!cfg) {
+      console.warn('[Loot] No loot config found!');
+      return;
+    }
     
     let dropChance = cfg.baseDropChance || 0.03;
     if (killData.isElite) dropChance = cfg.eliteDropChance || 0.25;
@@ -251,7 +254,11 @@ export const Bullets = {
     // Apply luck
     dropChance *= (1 + State.player.luck * 0.02);
     
-    if (Math.random() < dropChance) {
+    const roll = Math.random();
+    console.log(`[Loot] Roll ${roll.toFixed(3)} vs chance ${dropChance.toFixed(3)} (elite:${killData.isElite}, boss:${killData.isBoss})`);
+    
+    if (roll < dropChance) {
+      console.log('[Loot] Drop success! Creating item pickup');
       // Spawn pickup
       State.pickups.push({
         type: 'item',

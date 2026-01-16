@@ -348,13 +348,13 @@ export const Audio = {
       }
       
       this.initialized = true;
-      console.log('🔊 Audio system initialized');
+      console.log('[] Audio system initialized');
       
       // Preload essential sounds
       this.preloadEssentials();
       
     } catch (error) {
-      console.error('❌ Audio init failed:', error);
+      console.error('[] Audio init failed:', error);
       this.initialized = false;
     }
   },
@@ -364,7 +364,7 @@ export const Audio = {
       if (this.ctx && this.ctx.state === 'suspended') {
         this.ctx.resume().then(() => {
           this.suspended = false;
-          console.log('🔊 Audio context resumed');
+          console.log('[] Audio context resumed');
         });
       }
     };
@@ -388,7 +388,7 @@ export const Audio = {
       await this.loadSound(id);
     }
     
-    console.log('🔊 Essential sounds preloaded');
+    console.log('[] Essential sounds preloaded');
   },
   
   async preloadAll() {
@@ -405,7 +405,7 @@ export const Audio = {
     }
     
     await Promise.all(promises);
-    console.log('🔊 All audio preloaded');
+    console.log('[] All audio preloaded');
   },
   
   async loadSound(id) {
@@ -454,7 +454,7 @@ export const Audio = {
     }
     
     // Silent fail - sound just won't play
-    console.warn(`⚠️ Audio not found: ${basePath}`);
+    console.warn(`[] Audio not found: ${basePath}`);
     return null;
   },
   
