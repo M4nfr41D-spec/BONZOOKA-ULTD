@@ -3,6 +3,7 @@
     "name": "Asteroid Belt",
     "description": "Navigate through the treacherous asteroid fields",
     "biome": "asteroid",
+    "mapType": "terrain",
     "unlocked": true,
     "zones": 4,
     "generation": {
@@ -51,6 +52,7 @@
     "name": "Nebula Depths",
     "description": "Descend into the toxic nebula clouds",
     "biome": "nebula",
+    "mapType": "terrain",
     "unlocked": false,
     "zones": 5,
     "generation": {
@@ -102,6 +104,7 @@
     "name": "The Void",
     "description": "Face the darkness at the edge of known space",
     "biome": "void",
+    "mapType": "space",
     "unlocked": false,
     "zones": 6,
     "generation": {

@@ -4,7 +4,7 @@
   
   "player": {
     "baseHP": 100,
-    "baseDamage": 6,
+    "baseDamage": 20,
     "baseSpeed": 320,
     "baseFireRate": 3.5,
     "baseCritChance": 5,
@@ -62,8 +62,8 @@
   },
   
   "loot": {
-    "baseDropChance": 0.05,
-    "eliteDropChance": 0.25,
+    "baseDropChance": 0.20,
+    "eliteDropChance": 0.50,
     "bossDropChance": 1.0,
     "bossGuaranteedRarity": "rare",
     
@@ -151,7 +151,8 @@
   
   "exploration": {
     "bossEveryNZones": 10,
-    "mapScale": 5.0,
+    "mapScale": 4.0,
+    "cameraZoom": 1.0,
     "enemyDensityMult": 0.35,
     "eliteDensityMult": 0.5,
     "maxEnemySpawnsPerZone": 90,
@@ -164,8 +165,8 @@
     "portalInteractRadius": 75,
     "enemyAggroRangeMult": 0.7,
     "enemyFireIntervalMult": 1.75,
-    "maxStarsBackground": 1200,
-    "maxStarsMidground": 800,
+    "maxStarsBackground": 100,
+    "maxStarsMidground": 50,
     "maxDecorationsPerZone": 4000,
     "maxObstaclesPerZone": 1500
   },
@@ -212,9 +213,13 @@
     },
     "fog": {
       "enabled": true,
-      "count": 1,
-      "scrollSpeed": 0.12,
+      "count": 3,
+      "scrollSpeed": 0.08,
       "driftSpeed": 32,
+      "alphaMin": 0.15,
+      "alphaMax": 0.35,
+      "scaleMin": 1.2,
+      "scaleMax": 2.2,
       "paths": [
         "./assets/fog/fog_1.png",
         "./assets/fog/fog_5.png",
