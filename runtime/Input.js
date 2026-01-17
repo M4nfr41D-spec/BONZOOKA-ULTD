@@ -74,6 +74,16 @@ export const Input = {
       case 'ShiftRight':
         input.shift = true;
         break;
+      case 'KeyP':
+        // Pause toggle (only once per key press)
+        if (!input.pausePressed) input.pausePressed = true;
+        input.pause = true;
+        break;
+      case 'KeyI':
+        // Inventory toggle (only once per key press)
+        if (!input.inventoryPressed) input.inventoryPressed = true;
+        input.inventory = true;
+        break;
     }
   },
   
@@ -102,10 +112,19 @@ export const Input = {
         break;
       case 'KeyE':
         input.interact = false;
+        input.interactPressed = false;
         break;
       case 'ShiftLeft':
       case 'ShiftRight':
         input.shift = false;
+        break;
+      case 'KeyP':
+        input.pause = false;
+        input.pausePressed = false;
+        break;
+      case 'KeyI':
+        input.inventory = false;
+        input.inventoryPressed = false;
         break;
     }
   },

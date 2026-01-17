@@ -108,7 +108,7 @@ export const Stats = {
     if (p.hp > p.maxHP) p.hp = p.maxHP;
     if (p.shield > p.maxShield) p.shield = p.maxShield;
     
-    console.log('ðŸ“Š Stats calculated:', {
+    console.log(' Stats calculated:', {
       hp: p.maxHP,
       damage: p.damage,
       fireRate: p.fireRate,

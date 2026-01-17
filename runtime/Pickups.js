@@ -102,7 +102,7 @@ export const Pickups = {
       case 'scrap':
         State.run.scrapEarned += pickup.value;
         this.spawnCollectEffect(pickup.x, pickup.y, '#ffd700');
-        this.spawnFloatText(pickup.x, pickup.y, `+${pickup.value} '#ffd700');
+        this.spawnFloatText(pickup.x, pickup.y, `+${pickup.value}`, '#ffd700');
         break;
         
       case 'item':
@@ -113,19 +113,18 @@ export const Pickups = {
             this.spawnCollectEffect(pickup.x, pickup.y, State.data.rarities[item.rarity]?.color || '#ffffff');
             this.spawnFloatText(pickup.x, pickup.y, item.name, State.data.rarities[item.rarity]?.color || '#ffffff');
           } else {
-            // Stash full - convert to scrap
             const scrapValue = item.value;
             State.run.scrapEarned += scrapValue;
-            this.spawnFloatText(pickup.x, pickup.y, `FULL! +${scrapValue} '#ff8800');
+            this.spawnFloatText(pickup.x, pickup.y, `FULL! +${scrapValue}`, '#ff8800');
           }
         }
         break;
-        
+
       case 'health':
         const healed = pickup.value || 25;
         State.player.hp = Math.min(State.player.maxHP, State.player.hp + healed);
         this.spawnCollectEffect(pickup.x, pickup.y, '#00ff88');
-        this.spawnFloatText(pickup.x, pickup.y, `+${healed}[]`, '#00ff88');
+        this.spawnFloatText(pickup.x, pickup.y, `+${healed}`, '#00ff88');
         break;
         
       case 'xp':
@@ -231,6 +230,21 @@ export const Pickups = {
           ctx.beginPath();
           ctx.arc(pk.x, pk.y, 16 * pulse, 0, Math.PI * 2);
           ctx.stroke();
+          
+          // Draw item icon if available
+          if (pk.item && pk.item.iconPath) {
+            const { Assets } = State.modules;
+            const icon = Assets?.get?.(pk.item.iconPath);
+            if (icon) {
+              const iconSize = 16;
+              ctx.save();
+              ctx.shadowColor = rarityColor;
+              ctx.shadowBlur = 8;
+              ctx.globalAlpha = Math.min(1, pk.life * 2);
+              ctx.drawImage(icon, pk.x - iconSize / 2, pk.y - iconSize / 2, iconSize, iconSize);
+              ctx.restore();
+            }
+          }
           break;
           
         case 'health':

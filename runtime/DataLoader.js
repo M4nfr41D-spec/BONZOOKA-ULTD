@@ -48,7 +48,7 @@ export async function loadAllData() {
   const failed = results.filter(r => !r.success);
   
   if (failed.length > 0) {
-    console.warn(`[] ${failed.length} data files failed to load`);
+    console.warn(`[!] ${failed.length} data files failed to load`);
   } else {
     console.log('[OK] All game data loaded successfully');
   }

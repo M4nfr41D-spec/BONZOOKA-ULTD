@@ -10,6 +10,7 @@ import { Stats } from './Stats.js';
 import { Leveling } from './Leveling.js';
 import { Items } from './Items.js';
 import { Save } from './Save.js';
+import { Assets } from './AssetLoader.js';
 
 export const UI = {
   tooltipEl: null,
@@ -48,13 +49,21 @@ export const UI = {
       const item = equippedId ? stash.find(i => i.id === equippedId) : null;
       const rarityColor = item ? (rarities[item.rarity]?.color || '#666') : '#333';
       
+      // Get icon content
+      const hasIcon = item && item.iconPath && Assets.has(item.iconPath);
+      const iconContent = item 
+        ? (hasIcon 
+          ? `<img src="${item.iconPath}" alt="${item.name}" class="item-icon-img">`
+          : `<span class="item-icon-emoji">${item.icon}</span>`)
+        : `<span class="slot-icon-emoji">${slotDef.icon}</span>`;
+      
       html += `
         <div class="equip-slot ${item ? 'filled' : ''}" 
              style="--rarity-color: ${rarityColor}"
              onclick="UI.onEquipSlotClick('${slotId}')"
              onmouseenter="UI.showSlotTooltip(event, '${slotId}')"
              onmouseleave="UI.hideTooltip()">
-          <div class="slot-icon">${item ? item.icon : slotDef.icon}</div>
+          <div class="slot-icon">${iconContent}</div>
           <div class="slot-info">
             <div class="slot-type">${slotDef.name}</div>
             ${item 
@@ -86,6 +95,12 @@ export const UI = {
       const isEquipped = Object.values(equipment).includes(item.id);
       const rarityColor = rarities[item.rarity]?.color || '#666';
       
+      // Get icon (prefer PNG, fallback to emoji)
+      const hasIcon = item.iconPath && Assets.has(item.iconPath);
+      const iconContent = hasIcon 
+        ? `<img src="${item.iconPath}" alt="${item.name}" class="item-icon-img">`
+        : `<span class="item-icon-emoji">${item.icon}</span>`;
+      
       html += `
         <div class="stash-slot filled ${isEquipped ? 'equipped' : ''}"
              style="--rarity-color: ${rarityColor}"
@@ -93,7 +108,7 @@ export const UI = {
              oncontextmenu="UI.sellItem(event, '${item.id}')"
              onmouseenter="UI.showItemTooltip(event, '${item.id}')"
              onmouseleave="UI.hideTooltip()">
-          ${item.icon}
+          ${iconContent}
         </div>
       `;
     }
@@ -258,7 +273,7 @@ export const UI = {
           <div class="upgrade-icon">${upgrade.icon}</div>
           <div class="upgrade-name">${upgrade.name}</div>
           <div class="upgrade-tier">${tier}/${upgrade.maxTier}</div>
-          <div class="upgrade-cost ${canBuy ? '' : 'expensive'}">${maxed ? 'MAX' : cost + ' âš¡'}</div>
+          <div class="upgrade-cost ${canBuy ? '' : 'expensive'}">${maxed ? 'MAX' : cost + ' +'}</div>
         </div>
       `;
     }
@@ -288,12 +303,12 @@ export const UI = {
         <span class="tooltip-icon">${item.icon}</span>
         <div>
           <div class="tooltip-name" style="color:${rarityData?.color || '#fff'}">${item.name}</div>
-          <div class="tooltip-type">${item.slot} â€¢ Level ${item.level}</div>
+          <div class="tooltip-type">${item.slot} | Level ${item.level}</div>
         </div>
       </div>
       <div class="tooltip-body">
         ${statsHtml}
-        <div class="tooltip-value">Sell: ${item.value} ðŸ’°</div>
+        <div class="tooltip-value">Sell: ${item.value} $
         <div class="tooltip-hint">${isEquipped ? 'Click to unequip' : 'Click to equip'}</div>
       </div>
     `;
@@ -422,7 +437,7 @@ export const UI = {
     const value = Items.sell(itemId);
     
     // Show feedback
-    this.showFloatingText(event.clientX, event.clientY, `+${value} ðŸ’°`, '#ffcc00');
+    this.showFloatingText(event.clientX, event.clientY, `+${value} $`, '#ffcc00');
     
     Save.save();
     this.renderAll();

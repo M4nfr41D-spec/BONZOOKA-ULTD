@@ -134,6 +134,11 @@ export const State = {
     interact: false,
     interactPressed: false,
     shift: false,
+    // UI toggles
+    pause: false,
+    pausePressed: false,
+    inventory: false,
+    inventoryPressed: false,
     mouseX: 0,
     mouseY: 0
   },

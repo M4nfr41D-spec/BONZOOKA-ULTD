@@ -12,6 +12,7 @@ import { Camera } from './Camera.js';
 import { SeededRandom } from './SeededRandom.js';
 import { DepthRules } from './DepthRules.js';
 import { Background } from './Background.js';
+import { Assets } from '../AssetLoader.js';
 
 export const World = {
   currentZone: null,
@@ -59,8 +60,12 @@ export const World = {
     // Boss interval: use config.exploration.bossEveryNZones (default 10)
     const bossInterval = State.data.config?.exploration?.bossEveryNZones || 10;
     const isBossZone = depth > 0 && (depth % bossInterval) === 0;
+    const moduloResult = depth % bossInterval;
     
-    console.log(`[World] Zone ${depth}: bossInterval=${bossInterval}, isBoss=${isBossZone}`);
+    console.log(`[World] Zone ${depth}: bossInterval=${bossInterval}, isBoss=${isBossZone}, modulo=${moduloResult}`);
+    if (isBossZone) {
+      console.log(`[BOSS SPAWN] Boss zone detected at depth=${depth}. Check MapGenerator to verify boss arena generation.`);
+    }
 
     // Sample active modifiers for this zone
     const activeMods = DepthRules.sampleActive(depth, this.currentAct);
@@ -105,7 +110,7 @@ export const World = {
   
   // Update - handle proximity spawning
   update(dt) {
-    if (!this.currentZone) return;
+    if (!this.currentZone) return null;
     
     const player = State.player;
     
@@ -173,8 +178,9 @@ export const World = {
     // Check portal collision
     for (const portal of this.currentZone.portals) {
       const dist = Math.hypot(player.x - portal.x, player.y - portal.y);
-      if (dist < 60) {
+      if (dist < 60 && State.input.interactPressed) {
         this.onPortalEnter(portal);
+        State.input.interactPressed = false; // Consume the input
       }
     }
     
@@ -383,10 +389,22 @@ export const World = {
       if (!Camera.isVisible(dec.x, dec.y, 200, screenW, screenH)) continue;
       
       ctx.globalAlpha = dec.alpha;
-      ctx.fillStyle = '#ffffff';
-      ctx.beginPath();
-      ctx.arc(dec.x, dec.y, 5 * dec.scale, 0, Math.PI * 2);
-      ctx.fill();
+      
+      // Try to use deco sprite
+      const decoSprite = Assets.getRandomDeco(dec.seed || dec.x * 0.001);
+      if (decoSprite) {
+        const baseSize = 30 * dec.scale;
+        const aspect = decoSprite.width / decoSprite.height;
+        const w = baseSize * aspect;
+        const h = baseSize;
+        ctx.drawImage(decoSprite, dec.x - w/2, dec.y - h/2, w, h);
+      } else {
+        // Fallback: simple circle
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(dec.x, dec.y, 5 * dec.scale, 0, Math.PI * 2);
+        ctx.fill();
+      }
     }
     ctx.globalAlpha = 1;
     
@@ -398,43 +416,58 @@ export const World = {
       ctx.translate(obs.x, obs.y);
       ctx.rotate(obs.rotation || 0);
       
-      // Draw based on type
-      switch (obs.type) {
-        case 'asteroid':
-          ctx.fillStyle = '#555566';
-          ctx.beginPath();
-          ctx.arc(0, 0, obs.radius, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.strokeStyle = '#333344';
-          ctx.lineWidth = 2;
-          ctx.stroke();
-          break;
-          
-        case 'debris':
-          ctx.fillStyle = '#444455';
-          ctx.fillRect(-obs.radius, -obs.radius/2, obs.radius*2, obs.radius);
-          break;
-          
-        case 'mine':
-          ctx.fillStyle = '#ff4444';
-          ctx.beginPath();
-          ctx.arc(0, 0, obs.radius, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.fillStyle = '#ffff00';
-          ctx.beginPath();
-          ctx.arc(0, 0, obs.radius * 0.4, 0, Math.PI * 2);
-          ctx.fill();
-          break;
-          
-        case 'pillar':
-          ctx.fillStyle = '#667788';
-          ctx.beginPath();
-          ctx.arc(0, 0, obs.radius, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.strokeStyle = '#8899aa';
-          ctx.lineWidth = 3;
-          ctx.stroke();
-          break;
+      // Try to use sprite first
+      let sprite = null;
+      if (obs.type === 'asteroid') {
+        // Use seeded random to pick consistent asteroid sprite
+        sprite = Assets.getRandomAsteroid(obs.seed || obs.x * 0.001);
+      }
+      
+      if (sprite) {
+        // Draw sprite scaled to obstacle radius
+        const scale = (obs.radius * 2) / Math.max(sprite.width, sprite.height);
+        const w = sprite.width * scale;
+        const h = sprite.height * scale;
+        ctx.drawImage(sprite, -w/2, -h/2, w, h);
+      } else {
+        // Fallback: Draw based on type (primitive shapes)
+        switch (obs.type) {
+          case 'asteroid':
+            ctx.fillStyle = '#555566';
+            ctx.beginPath();
+            ctx.arc(0, 0, obs.radius, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#333344';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            break;
+            
+          case 'debris':
+            ctx.fillStyle = '#444455';
+            ctx.fillRect(-obs.radius, -obs.radius/2, obs.radius*2, obs.radius);
+            break;
+            
+          case 'mine':
+            ctx.fillStyle = '#ff4444';
+            ctx.beginPath();
+            ctx.arc(0, 0, obs.radius, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#ffff00';
+            ctx.beginPath();
+            ctx.arc(0, 0, obs.radius * 0.4, 0, Math.PI * 2);
+            ctx.fill();
+            break;
+            
+          case 'pillar':
+            ctx.fillStyle = '#667788';
+            ctx.beginPath();
+            ctx.arc(0, 0, obs.radius, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#8899aa';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+            break;
+        }
       }
       
       ctx.restore();
@@ -472,6 +505,12 @@ export const World = {
       ctx.font = 'bold 12px Orbitron';
       ctx.textAlign = 'center';
       ctx.fillText('PORTAL', portal.x, portal.y + 5);
+      
+      // Show interaction hint
+      ctx.fillStyle = '#00ff88';
+      ctx.font = '11px Exo 2';
+      ctx.textAlign = 'center';
+      ctx.fillText('PRESS E', portal.x, portal.y + 25);
     }
   },
   

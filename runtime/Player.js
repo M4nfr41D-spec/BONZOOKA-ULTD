@@ -9,6 +9,7 @@ import { State } from './State.js';
 import { Input } from './Input.js';
 import { Bullets } from './Bullets.js';
 import { Particles } from './Particles.js';
+import { Assets } from './AssetLoader.js';
 
 export const Player = {
   
@@ -60,6 +61,25 @@ export const Player = {
         p.x = Math.max(margin, Math.min(zone.width - margin, p.x));
         p.y = Math.max(margin, Math.min(zone.height - margin, p.y));
       }
+      
+      // Keep player in center third of screen (spongy boundary)
+      const screenW = canvas.width;
+      const screenH = canvas.height;
+      const centerThirdW = screenW / 3;
+      const centerThirdH = screenH / 3;
+      const camX = State.modules?.Camera?.getX?.() || 0;
+      const camY = State.modules?.Camera?.getY?.() || 0;
+      
+      const screenCenterX = camX + screenW / 2;
+      const screenCenterY = camY + screenH / 2;
+      
+      const minX = screenCenterX - centerThirdW / 2;
+      const maxX = screenCenterX + centerThirdW / 2;
+      const minY = screenCenterY - centerThirdH / 2;
+      const maxY = screenCenterY + centerThirdH / 2;
+      
+      p.x = Math.max(minX, Math.min(maxX, p.x));
+      p.y = Math.max(minY, Math.min(maxY, p.y));
     } else {
       // Wave mode: clamp to canvas boundaries
       p.x = Math.max(margin, Math.min(canvas.width - margin, p.x));
@@ -189,38 +209,47 @@ export const Player = {
   
   draw(ctx) {
     const p = State.player;
+    const sprite = Assets.get('player_ship');
     
     ctx.save();
     ctx.translate(p.x, p.y);
     ctx.rotate(p.angle + Math.PI / 2); // Ship sprite points up
     
-    // Ship body
-    ctx.beginPath();
-    ctx.moveTo(0, -20);
-    ctx.lineTo(-14, 16);
-    ctx.lineTo(0, 10);
-    ctx.lineTo(14, 16);
-    ctx.closePath();
-    
-    // Gradient fill
-    const grad = ctx.createLinearGradient(0, -20, 0, 16);
-    grad.addColorStop(0, '#00ffaa');
-    grad.addColorStop(1, '#005544');
-    ctx.fillStyle = grad;
-    ctx.fill();
-    
-    // Outline
-    ctx.strokeStyle = '#00ff88';
-    ctx.lineWidth = 2;
-    ctx.stroke();
+    // Try to draw sprite, fallback to shape
+    if (sprite) {
+      const scale = 0.15; // Scaled down to match hitbox
+      const w = sprite.width * scale;
+      const h = sprite.height * scale;
+      ctx.drawImage(sprite, -w/2, -h/2, w, h);
+    } else {
+      // Fallback: Ship body (primitive shape) - scaled to 1/5 size
+      ctx.beginPath();
+      ctx.moveTo(0, -4);
+      ctx.lineTo(-2.8, 3.2);
+      ctx.lineTo(0, 2);
+      ctx.lineTo(2.8, 3.2);
+      ctx.closePath();
+      
+      // Gradient fill
+      const grad = ctx.createLinearGradient(0, -20, 0, 16);
+      grad.addColorStop(0, '#00ffaa');
+      grad.addColorStop(1, '#005544');
+      ctx.fillStyle = grad;
+      ctx.fill();
+      
+      // Outline
+      ctx.strokeStyle = '#00ff88';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
     
     // Engine glow when moving
     const isMoving = Math.abs(p.vx) > 10 || Math.abs(p.vy) > 10;
     if (isMoving) {
       ctx.beginPath();
-      ctx.moveTo(-8, 14);
-      ctx.lineTo(0, 26 + Math.random() * 6);
-      ctx.lineTo(8, 14);
+      ctx.moveTo(-1.6, 2.8);
+      ctx.lineTo(0, 5.2 + Math.random() * 1.2);
+      ctx.lineTo(1.6, 2.8);
       ctx.fillStyle = `rgba(0, 200, 255, ${0.6 + Math.random() * 0.4})`;
       ctx.fill();
     }

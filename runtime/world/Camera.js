@@ -15,9 +15,11 @@ export const Camera = {
   targetY: 0,
   
   // Config (can be overridden from config.json)
-  smoothing: 0.08,      // Lower = smoother/slower follow
-  deadzone: 50,         // Pixels before camera starts following
+  smoothing: 0.15,      // Faster follow to keep player centered (increased from 0.08)
+  deadzone: 20,         // Tighter deadzone for centered feel
   lookahead: 0,         // Look ahead in movement direction
+  zoom: 1.0,            // Camera zoom level (1.0 = normal, <1.0 = zoom out)
+  keepCentered: true,   // Keep player in center third of screen
   shake: { x: 0, y: 0, intensity: 0, duration: 0 },
   
   // Initialize camera
@@ -26,6 +28,13 @@ export const Camera = {
     this.y = startY;
     this.targetX = startX;
     this.targetY = startY;
+    
+    // Load zoom from config
+    const zoom = State.data?.config?.exploration?.cameraZoom;
+    if (typeof zoom === 'number' && isFinite(zoom) && zoom > 0) {
+      this.zoom = zoom;
+    }
+    
     this.shake = { x: 0, y: 0, intensity: 0, duration: 0 };
   },
   
@@ -87,7 +96,17 @@ export const Camera = {
   
   // Apply camera transform to context
   applyTransform(ctx) {
-    ctx.translate(-this.getX(), -this.getY());
+    const centerX = -this.getX();
+    const centerY = -this.getY();
+    ctx.translate(centerX, centerY);
+    // Apply zoom (center the zoom on player)
+    if (this.zoom !== 1.0) {
+      ctx.scale(this.zoom, this.zoom);
+      // Adjust position to keep player centered when zoomed
+      const offsetX = (1 / this.zoom - 1) * (this.getX() + 400);
+      const offsetY = (1 / this.zoom - 1) * (this.getY() + 300);
+      ctx.translate(-offsetX, -offsetY);
+    }
   },
   
   // Reset transform

@@ -309,6 +309,7 @@ export const Audio = {
   activeSounds: {},
   activeMusic: null,
   musicFadeInterval: null,
+  activeSoundInstances: {}, // Track looping sounds for cleanup: { soundId: { source, gainNode, stop() } }
   
   // Sound pools for frequently played sounds
   pools: {},
@@ -462,6 +463,10 @@ export const Audio = {
   
   play(id, options = {}) {
     if (!this.initialized || this.suspended) return null;
+    if (this.ctx?.state !== 'running') {
+      console.warn(`[Audio] Cannot play '${id}': audio context state is '${this.ctx?.state}'`);
+      return null;
+    }
     
     const def = SOUND_DEFS[id];
     if (!def) {
@@ -531,18 +536,29 @@ export const Audio = {
     // Start playback
     source.start(0);
     
-    return {
+    const soundObj = {
       source,
       gainNode,
       stop: () => {
         try {
           source.stop();
         } catch (e) {}
+        // Clean up tracking
+        if (def.loop) {
+          delete this.activeSoundInstances[id];
+        }
       },
       setVolume: (v) => {
         gainNode.gain.value = v;
       }
     };
+    
+    // Track looping sounds for cleanup
+    if (def.loop) {
+      this.activeSoundInstances[id] = soundObj;
+    }
+    
+    return soundObj;
   },
   
   createSpatialPanner(x, y) {
@@ -607,6 +623,28 @@ export const Audio = {
       success: 'ui_success'
     };
     this.play(sounds[type] || 'ui_click');
+  },
+  
+  // ========== SOUND CLEANUP ==========
+  
+  stopSoundById(soundId) {
+    if (this.activeSoundInstances[soundId]) {
+      try {
+        this.activeSoundInstances[soundId].stop();
+      } catch (e) {
+        console.warn(`[Audio] Failed to stop sound ${soundId}:`, e);
+      }
+      delete this.activeSoundInstances[soundId];
+    }
+  },
+  
+  stopAllLoopingSounds() {
+    for (const [id, sound] of Object.entries(this.activeSoundInstances)) {
+      try {
+        sound.stop();
+      } catch (e) {}
+    }
+    this.activeSoundInstances = {};
   },
   
   // ========== MUSIC PLAYBACK ==========

@@ -11,11 +11,24 @@
 // ============================================================
 
 import { State } from './State.js';
+import { UI } from './UI.js';
 
 export const PauseUI = {
   apply() {
-    // CSS controls visibility/positioning for panels + backdrop.
-    document.body.classList.toggle('paused-ui', !!State.ui.paused);
+    // Toggle visibility
+    const paused = !!State.ui.paused;
+    document.body.classList.toggle('paused-ui', paused);
+    
+    // Show/hide left and right panels
+    const leftPanel = document.getElementById('leftPanel');
+    const rightPanel = document.getElementById('rightPanel');
+    if (leftPanel) leftPanel.style.display = paused ? 'flex' : 'none';
+    if (rightPanel) rightPanel.style.display = paused ? 'flex' : 'none';
+    
+    // Re-render content when opening
+    if (paused && UI && UI.renderAll) {
+      UI.renderAll();
+    }
   },
 
   toggle() {
@@ -33,3 +46,10 @@ export const PauseUI = {
     this.apply();
   }
 };
+
+// In your portal/door entity update:
+if (State.input.interactPressed) {
+  // Portal was just pressed
+  this.interact();
+  State.input.interactPressed = false; // Consume the input
+}
