@@ -19,6 +19,8 @@ import { Pickups } from './runtime/Pickups.js';
 import { Particles } from './runtime/Particles.js';
 import { Input } from './runtime/Input.js';
 import { UI } from './runtime/UI.js';
+import { Assets } from './runtime/AssetLoader.js';
+import { PauseUI } from './runtime/PauseUI.js';
 
 // Audio System
 import { Audio } from './runtime/Audio.js';
@@ -66,6 +68,9 @@ const Game = {
     // Load data
     await loadAllData();
     
+    // Load sprites/images
+    await Assets.loadAll();
+    
     // Load save
     Save.load();
     
@@ -75,6 +80,15 @@ const Game = {
       Enemies, Bullets, Pickups, Particles, UI,
       Camera, World, SceneManager, Audio
     };
+    
+    // Validate all required modules loaded
+    const requiredModules = ['Save', 'Stats', 'Items', 'Player', 'World', 'Audio', 'Camera', 'SceneManager'];
+    for (const modName of requiredModules) {
+      if (!State.modules[modName]) {
+        throw new Error(`[CRITICAL] Module '${modName}' failed to load. Game cannot continue.`);
+      }
+    }
+    console.log('[OK] All required modules validated');
     
     // Initialize systems
     Input.init(this.canvas);
@@ -180,6 +194,9 @@ const Game = {
       // Update scene transitions
       SceneManager.updateTransition(dt);
       
+      // Handle pause/inventory toggles
+      this.handleUIToggles();
+      
       // Scene-specific updates
       const scene = SceneManager.getScene();
       
@@ -195,6 +212,22 @@ const Game = {
     }
     
     requestAnimationFrame((t) => this.loop(t));
+  },
+  
+  // ========== UI TOGGLES ==========
+  
+  handleUIToggles() {
+    // Check for pause toggle (P key)
+    if (State.input.pausePressed) {
+      PauseUI.toggle();
+      State.input.pausePressed = false;
+    }
+    
+    // Check for inventory toggle (I key)
+    if (State.input.inventoryPressed) {
+      PauseUI.toggle();
+      State.input.inventoryPressed = false;
+    }
   },
   
   // ========== COMBAT UPDATE ==========

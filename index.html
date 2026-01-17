@@ -200,6 +200,15 @@ html, body {
     var(--bg-dark);
 }
 
+/* Paused layout: wider panels for better inventory management */
+.paused-ui #app {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+
+.paused-ui #gameContainer {
+  display: none;
+}
+
 /* ================================================================
    TOP BAR
    ================================================================ */
@@ -284,10 +293,37 @@ html, body {
 #leftPanel, #rightPanel {
   padding: 10px;
   overflow-y: auto;
-  display: flex;
+  overflow-x: hidden;
+  display: none;
   flex-direction: column;
   gap: 10px;
   background: linear-gradient(180deg, rgba(20,30,40,0.8), rgba(10,15,20,0.9));
+  max-height: calc(100vh - 66px);
+}
+
+/* Show panels when paused */
+.paused-ui #leftPanel,
+.paused-ui #rightPanel {
+  display: flex;
+}
+
+/* Better scrolling for pause UI */
+#leftPanel::-webkit-scrollbar,
+#rightPanel::-webkit-scrollbar {
+  width: 8px;
+}
+#leftPanel::-webkit-scrollbar-track,
+#rightPanel::-webkit-scrollbar-track {
+  background: rgba(0,0,0,0.3);
+}
+#leftPanel::-webkit-scrollbar-thumb,
+#rightPanel::-webkit-scrollbar-thumb {
+  background: var(--cyan-dim);
+  border-radius: 4px;
+}
+#leftPanel::-webkit-scrollbar-thumb:hover,
+#rightPanel::-webkit-scrollbar-thumb:hover {
+  background: var(--cyan);
 }
 
 /* ================================================================
@@ -420,7 +456,8 @@ html, body {
 }
 .equip-slot:hover { border-color: var(--frame-mid); background: rgba(0,100,120,0.1); }
 .equip-slot.filled { border-color: var(--rarity-color, var(--frame-mid)); }
-.equip-slot .slot-icon { font-size: 22px; width: 30px; text-align: center; }
+.equip-slot .slot-icon { font-size: 22px; width: 30px; text-align: center; display: flex; align-items: center; justify-content: center; }
+.equip-slot .slot-icon img { max-width: 28px; max-height: 28px; object-fit: contain; }
 .equip-slot .slot-info { flex: 1; min-width: 0; }
 .equip-slot .slot-type { font-size: 9px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; }
 .equip-slot .slot-item { font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -454,6 +491,18 @@ html, body {
   font-size: 8px;
   font-weight: bold;
   color: var(--cyan);
+}
+
+/* Item icon styles */
+.item-icon-img, .slot-icon img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 0 3px rgba(0, 0, 0, 0.5));
+}
+.item-icon-emoji, .slot-icon-emoji {
+  display: inline-block;
+  line-height: 1;
 }
 
 /* ================================================================
@@ -881,6 +930,7 @@ html, body {
   grid-column: 1;
   grid-row: 2;
   min-width: 0;
+  display: none;
 }
 #gameContainer {
   grid-column: 2;
@@ -891,6 +941,13 @@ html, body {
   grid-column: 3;
   grid-row: 2;
   min-width: 0;
+  display: none;
+}
+
+/* Show panels only when paused */
+.paused-ui #leftPanel,
+.paused-ui #rightPanel {
+  display: flex;
 }
 
 /* If your pause/inventory overlay exists, keep it out of the grid flow */

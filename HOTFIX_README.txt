@@ -1,11 +1,44 @@
 # 🔧 BONZOOKAA HOTFIX LOG
 
-## Current Stable Version: 2.4.0-endless
-## Date: 2026-01-15
+## Current Stable Version: 2.4.2-debug
+## Date: 2026-01-16
 
 ---
 
 # ✅ PATCH HISTORY
+
+## v2.4.2-debug (2026-01-16)
+
+### 🐛 CRITICAL FIXES
+
+#### Background Tiles Not Loading
+- **FIX:** Added `Background.prepareZone()` call in `World.loadZone()`
+- Background tiles were never being initialized for zones
+- Now properly loads act-specific background tiles
+
+#### Game.start() Missing
+- **FIX:** Added `start()` method to Game object
+- "START RUN" button was non-functional
+
+#### Debug Logging Added
+- Boss spawn logging: Shows `bossInterval` and `isBossZone` per zone
+- Loot drop logging: Shows roll vs chance for each kill
+- Check browser console (F12) to diagnose issues
+
+### 🔍 KNOWN ISSUES UNDER INVESTIGATION
+- Boss spawning at wrong zone (should be zone 10, not 5)
+- Sound hanging/looping issue
+- Enemy sprites with white backgrounds
+
+### ⚙️ DEBUG CONSOLE OUTPUT
+When playing, open browser console (F12) to see:
+```
+[World] Zone 1: bossInterval=10, isBoss=false
+[Loot] Roll 0.XXX vs chance 0.050 (elite:false, boss:false)
+[Loot] Drop success! Creating item pickup
+```
+
+---
 
 ## v2.4.0-endless (2026-01-15)
 
