@@ -2,22 +2,14 @@
 // License: See LICENSE.txt in the project root.
 
 // ============================================================
-// Background.js - Parallax System (Terrain vs Space)
+// Background.js - Tiled terrain + fog overlays + deco objects
 // ============================================================
-// 
-// TERRAIN MAPS (mapType: "terrain"):
-//   Layer 0: Terrain tile (world-locked tiling)
-//   Layer 1: Deco asteroids (medium parallax)
-//   Layer 2: Fog overlays (slow parallax OVER terrain)
-//   NO STARS on terrain maps!
-//
-// SPACE MAPS (mapType: "space"):
-//   Layer 0: Dark background color
-//   Layer 1: Far stars (very slow, 0.05)
-//   Layer 2: Near stars (slow, 0.15)
-//   Layer 3: Planets/objects (medium, 0.25)
-//   Layer 4: Deco objects (faster, 0.4)
-//   NO FOG on space maps!
+// v2.5.2 - FIXED: Fallback to FLAT asset paths (no subfolders)
+// Renders a deterministic, zone-seeded background stack:
+//  - Base terrain tile (world-locked tiling)
+//  - Optional starfield (cheap procedural)
+//  - Fog overlays (screen-space parallax)
+//  - Decorative asteroids (non-collision parallax)
 
 import { State } from '../State.js';
 import { Camera } from './Camera.js';
@@ -36,6 +28,7 @@ export const Background = {
   },
 
   _getPattern(ctx, src) {
+    // Pattern creation is context-bound but stable enough per canvas.
     const key = src;
     const existing = this._patternCache.get(key);
     if (existing && existing._ctx === ctx) return existing;
@@ -50,32 +43,21 @@ export const Background = {
     return pat;
   },
 
-  // Decide tile per act/biome
+  // Decide tile per act/biome (can be overridden via config).
   _tileForAct(act) {
     const cfg = State.data.config?.background || {};
-    const actId = typeof act === 'string' ? act : (act?.id || State.run?.currentAct);
-    
-    if (cfg.tileByAct && actId && cfg.tileByAct[actId]) {
-      return cfg.tileByAct[actId];
-    }
+    if (cfg.tileByAct && cfg.tileByAct[act?.id]) return cfg.tileByAct[act.id];
 
-    const biome = act?.biome;
-    switch (biome) {
+    // FIXED: Default mapping uses FLAT paths (assets in root folder)
+    switch (act?.biome) {
       case 'void':
-        return './assets/backgrounds/tile_void.webp';
+        return './tile_void.webp';
       case 'nebula':
-        return './assets/backgrounds/tile_toxicity.webp';
+        return './tile_toxicity.webp';
       case 'asteroid':
       default:
-        return './assets/backgrounds/tile_city_ruins.webp';
+        return './tile_city_ruins.webp';
     }
-  },
-
-  // Determine if this is a space or terrain map
-  _getMapType(act) {
-    if (act?.mapType) return act.mapType;
-    // Fallback: void biome = space, others = terrain
-    return act?.biome === 'void' ? 'space' : 'terrain';
   },
 
   prepareZone(zone, zoneSeed, act) {
@@ -86,207 +68,127 @@ export const Background = {
     }
 
     const rng = new SeededRandom((zoneSeed ^ 0xBADC0DE) >>> 0);
-    const mapType = this._getMapType(act);
+
     const tileSrc = this._tileForAct(act);
+    
+    // FIXED: Use FLAT paths as fallback (assets in root folder)
+    const fogSrcs = Array.isArray(cfg.fog?.paths) && cfg.fog.paths.length
+      ? cfg.fog.paths
+      : [
+          './fog_1.png',
+          './fog_5.png',
+          './fog_14.png'
+        ];
 
-    // ==================== TERRAIN MAP ====================
-    if (mapType === 'terrain') {
-      const fogSrcs = cfg.fog?.paths || [
-        './assets/fog/fog_1.png',
-        './assets/fog/fog_5.png',
-        './assets/fog/fog_14.png'
-      ];
+    const decoSrcs = Array.isArray(cfg.deco?.spritePaths) && cfg.deco.spritePaths.length
+      ? cfg.deco.spritePaths
+      : [
+          // FIXED: FLAT paths for decorative asteroids
+          './asteroid_deco_1.png',
+          './asteroid_deco_2.png',
+          './asteroid_deco_3.png',
+          './asteroid_deco_4.png',
+          './asteroid_deco_big.png'
+        ];
 
-      const decoSrcs = cfg.deco?.spritePaths || [
-        './assets/asteroids_deco/asteroid_deco_1.png',
-        './assets/asteroids_deco/asteroid_deco_2.png',
-        './assets/asteroids_deco/asteroid_deco_3.png',
-        './assets/asteroids_deco/asteroid_deco_4.png',
-        './assets/asteroids_deco/asteroid_deco_big.png'
-      ];
+    // Defaults tuned for perf: few big shapes are enough.
+    const decoCount = (typeof cfg.deco?.count === 'number') ? cfg.deco.count : 6;
+    const fogCount = (typeof cfg.fog?.count === 'number') ? cfg.fog.count : 1;
 
-      const fogCount = cfg.fog?.count ?? 3;
-      const decoCount = cfg.deco?.count ?? 8;
-
-      // Fog layers (screen-space, slow drift)
-      const fog = [];
-      for (let i = 0; i < fogCount; i++) {
-        fog.push({
-          ox: rng.range(0, 10000),
-          oy: rng.range(0, 10000),
-          r: rng.range(0, Math.PI * 2),
-          s: rng.range(cfg.fog?.scaleMin ?? 1.2, cfg.fog?.scaleMax ?? 2.2),
-          a: rng.range(cfg.fog?.alphaMin ?? 0.15, cfg.fog?.alphaMax ?? 0.35),
-          idx: rng.int(0, fogSrcs.length - 1)
-        });
-      }
-
-      // Deco asteroids (world-space parallax)
-      const deco = [];
-      for (let i = 0; i < decoCount; i++) {
-        deco.push({
-          x: rng.range(0, zone.width),
-          y: rng.range(0, zone.height),
-          r: rng.range(0, Math.PI * 2),
-          s: rng.range(cfg.deco?.scaleMin ?? 0.35, cfg.deco?.scaleMax ?? 1.1),
-          a: rng.range(cfg.deco?.alphaMin ?? 0.25, cfg.deco?.alphaMax ?? 0.65),
-          idx: rng.int(0, decoSrcs.length - 1)
-        });
-      }
-
-      zone._bg = {
-        mapType: 'terrain',
-        tileSrc,
-        fogSrcs,
-        decoSrcs,
-        fog,
-        deco,
-        stars: null // NO STARS on terrain maps
-      };
-
-      // Preload images
-      this._loadImage(tileSrc);
-      fogSrcs.forEach(p => this._loadImage(p));
-      decoSrcs.forEach(p => this._loadImage(p));
-    }
-    // ==================== SPACE MAP ====================
-    else {
-      const bgColor = act?.parallax?.bgColor || '#050510';
-      
-      // Far stars (very slow)
-      const farStars = this._generateStars(rng, zone.width * 2, zone.height * 2, {
-        count: 80,
-        sizeMin: 0.5,
-        sizeMax: 1.5,
-        brightnessMin: 0.2,
-        brightnessMax: 0.5,
-        twinkleChance: 0.2
-      });
-
-      // Near stars (slow)
-      const nearStars = this._generateStars(rng, zone.width * 1.5, zone.height * 1.5, {
-        count: 40,
-        sizeMin: 1,
-        sizeMax: 2.5,
-        brightnessMin: 0.4,
-        brightnessMax: 0.8,
-        twinkleChance: 0.4
-      });
-
-      // Planets/large objects (medium speed)
-      const planets = [];
-      const planetCount = rng.int(1, 3);
-      for (let i = 0; i < planetCount; i++) {
-        planets.push({
-          x: rng.range(200, zone.width - 200),
-          y: rng.range(200, zone.height - 200),
-          radius: rng.range(40, 120),
-          color: this._randomPlanetColor(rng),
-          hasRing: rng.chance(0.3)
-        });
-      }
-
-      // Deco objects (faster parallax)
-      const decoSrcs = cfg.deco?.spritePaths || [
-        './assets/asteroids_deco/asteroid_deco_1.png',
-        './assets/asteroids_deco/asteroid_deco_2.png',
-        './assets/asteroids_deco/asteroid_deco_3.png'
-      ];
-      
-      const deco = [];
-      const decoCount = cfg.deco?.count ?? 6;
-      for (let i = 0; i < decoCount; i++) {
-        deco.push({
-          x: rng.range(0, zone.width),
-          y: rng.range(0, zone.height),
-          r: rng.range(0, Math.PI * 2),
-          s: rng.range(0.3, 0.8),
-          a: rng.range(0.3, 0.6),
-          idx: rng.int(0, decoSrcs.length - 1)
-        });
-      }
-
-      zone._bg = {
-        mapType: 'space',
-        bgColor,
-        farStars,
-        nearStars,
-        planets,
-        decoSrcs,
-        deco,
-        fog: null // NO FOG on space maps
-      };
-
-      decoSrcs.forEach(p => this._loadImage(p));
-    }
-  },
-
-  _generateStars(rng, w, h, opts) {
-    const stars = [];
-    for (let i = 0; i < opts.count; i++) {
-      stars.push({
-        x: rng.range(0, w),
-        y: rng.range(0, h),
-        size: rng.range(opts.sizeMin, opts.sizeMax),
-        brightness: rng.range(opts.brightnessMin, opts.brightnessMax),
-        twinkle: rng.chance(opts.twinkleChance)
+    // Deterministic placement in world-space for deco.
+    const deco = [];
+    for (let i = 0; i < Math.max(0, decoCount); i++) {
+      deco.push({
+        x: rng.range(0, zone.width),
+        y: rng.range(0, zone.height),
+        r: rng.range(0, Math.PI * 2),
+        s: rng.range(cfg.deco?.scaleMin ?? 0.35, cfg.deco?.scaleMax ?? 1.05),
+        a: rng.range(cfg.deco?.alphaMin ?? 0.22, cfg.deco?.alphaMax ?? 0.55),
+        idx: rng.int(0, decoSrcs.length - 1)
       });
     }
-    return stars;
-  },
 
-  _randomPlanetColor(rng) {
-    const colors = [
-      '#664422', // Brown
-      '#446688', // Blue-gray
-      '#884422', // Rusty
-      '#668866', // Green-gray
-      '#886644', // Tan
-      '#553355', // Purple
-    ];
-    return colors[rng.int(0, colors.length - 1)];
+    // Fog overlays are screen-space; store a few drifting layers.
+    const fog = [];
+    for (let i = 0; i < Math.max(0, fogCount); i++) {
+      fog.push({
+        // Drift seed offsets
+        ox: rng.range(0, 10000),
+        oy: rng.range(0, 10000),
+        r: rng.range(0, Math.PI * 2),
+        s: rng.range(cfg.fog?.scaleMin ?? 1.1, cfg.fog?.scaleMax ?? 1.9),
+        a: rng.range(cfg.fog?.alphaMin ?? 0.08, cfg.fog?.alphaMax ?? 0.20),
+        idx: rng.int(0, fogSrcs.length - 1)
+      });
+    }
+
+    zone._bg = {
+      tileSrc,
+      fogSrcs,
+      decoSrcs,
+      deco,
+      fog
+    };
+
+    // Kick off image loads (non-blocking).
+    this._loadImage(tileSrc);
+    fogSrcs.forEach(p => this._loadImage(p));
+    decoSrcs.forEach(p => this._loadImage(p));
   },
 
   draw(ctx, screenW, screenH, zone) {
     const cfg = State.data.config?.background || {};
     if (cfg.enabled === false) return false;
+
+    // Fallback to legacy parallax if no background spec exists.
     if (!zone?._bg) return false;
 
     const camX = Camera.getX();
     const camY = Camera.getY();
     const now = performance.now() * 0.001;
 
-    if (zone._bg.mapType === 'terrain') {
-      return this._drawTerrain(ctx, screenW, screenH, zone, camX, camY, now, cfg);
-    } else {
-      return this._drawSpace(ctx, screenW, screenH, zone, camX, camY, now, cfg);
-    }
-  },
-
-  // ==================== TERRAIN RENDERING ====================
-  _drawTerrain(ctx, screenW, screenH, zone, camX, camY, now, cfg) {
-    // Layer 0: Terrain tile (world-locked)
+    // 1) Base terrain tile (world-locked; scrollSpeed=1)
     const tilePat = this._getPattern(ctx, zone._bg.tileSrc);
     if (tilePat) {
-      const tileScale = cfg.tileScale ?? 1.0;
+      const tileScale = (typeof cfg.tileScale === 'number') ? cfg.tileScale : 1.0;
       const tileImg = this._imgCache.get(zone._bg.tileSrc);
       const tw = tileImg?.naturalWidth || 1024;
       const th = tileImg?.naturalHeight || 1024;
-      
       ctx.save();
       ctx.scale(tileScale, tileScale);
       ctx.fillStyle = tilePat;
+      // Offset pattern so it appears locked to world coords.
       ctx.translate(-(camX % tw) / tileScale, -(camY % th) / tileScale);
       ctx.fillRect(0, 0, (screenW / tileScale) + tw * 2, (screenH / tileScale) + th * 2);
       ctx.restore();
     } else {
-      ctx.fillStyle = '#050810';
+      // If tile not ready, keep a cheap fill to avoid white flashes.
+      ctx.fillStyle = zone.parallax?.background?.color || '#050810';
       ctx.fillRect(0, 0, screenW, screenH);
     }
 
-    // Layer 1: Deco asteroids (medium parallax 0.55)
+    // 2) Optional cheap starfield (keeps motion/readability)
+    if (zone.parallax?.background?.stars) {
+      const parallax = zone.parallax;
+      const bgOffsetX = camX * parallax.background.scrollSpeed;
+      const bgOffsetY = camY * parallax.background.scrollSpeed;
+      ctx.fillStyle = '#ffffff';
+      for (const star of parallax.background.stars) {
+        const x = ((star.x - bgOffsetX) % screenW + screenW) % screenW;
+        const y = ((star.y - bgOffsetY) % screenH + screenH) % screenH;
+        let brightness = star.brightness;
+        if (star.twinkle) brightness *= 0.5 + Math.sin(now * 2 + star.x) * 0.5;
+        ctx.globalAlpha = brightness;
+        ctx.beginPath();
+        ctx.arc(x, y, star.size, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    // 3) Deco asteroids (non-collision) - parallax in-between
     if (cfg.deco?.enabled !== false) {
-      const speed = cfg.deco?.scrollSpeed ?? 0.55;
+      const speed = (typeof cfg.deco?.scrollSpeed === 'number') ? cfg.deco.scrollSpeed : 0.55;
       const sprites = zone._bg.decoSrcs;
 
       for (const d of zone._bg.deco) {
@@ -309,13 +211,14 @@ export const Background = {
       ctx.globalAlpha = 1;
     }
 
-    // Layer 2: Fog overlays (screen-space, OVER terrain)
-    if (cfg.fog?.enabled !== false && zone._bg.fog) {
-      const speed = cfg.fog?.scrollSpeed ?? 0.08;
-      const drift = cfg.fog?.driftSpeed ?? 32;
+    // 4) Fog overlays (screen space) - slow drift + slight parallax
+    if (cfg.fog?.enabled !== false) {
+      const speed = (typeof cfg.fog?.scrollSpeed === 'number') ? cfg.fog.scrollSpeed : 0.10;
+      const drift = (typeof cfg.fog?.driftSpeed === 'number') ? cfg.fog.driftSpeed : 35;
       const fogPaths = zone._bg.fogSrcs;
 
-      for (const f of zone._bg.fog) {
+      for (let i = 0; i < zone._bg.fog.length; i++) {
+        const f = zone._bg.fog[i];
         const src = fogPaths[f.idx];
         const img = this._imgCache.get(src);
         if (!img || !img.complete || !img.naturalWidth) continue;
@@ -335,105 +238,6 @@ export const Background = {
     }
 
     return true;
-  },
-
-  // ==================== SPACE RENDERING ====================
-  _drawSpace(ctx, screenW, screenH, zone, camX, camY, now, cfg) {
-    const bg = zone._bg;
-
-    // Layer 0: Dark background
-    ctx.fillStyle = bg.bgColor;
-    ctx.fillRect(0, 0, screenW, screenH);
-
-    // Layer 1: Far stars (very slow, 0.05)
-    this._drawStarLayer(ctx, bg.farStars, screenW, screenH, camX, camY, 0.05, now);
-
-    // Layer 2: Near stars (slow, 0.15)
-    this._drawStarLayer(ctx, bg.nearStars, screenW, screenH, camX, camY, 0.15, now);
-
-    // Layer 3: Planets (medium, 0.25)
-    for (const p of bg.planets) {
-      const x = p.x - camX * 0.25;
-      const y = p.y - camY * 0.25;
-      if (x < -200 || y < -200 || x > screenW + 200 || y > screenH + 200) continue;
-
-      ctx.save();
-      ctx.globalAlpha = 0.6;
-      
-      // Planet body
-      const grad = ctx.createRadialGradient(x - p.radius * 0.3, y - p.radius * 0.3, 0, x, y, p.radius);
-      grad.addColorStop(0, this._lightenColor(p.color, 30));
-      grad.addColorStop(1, p.color);
-      ctx.fillStyle = grad;
-      ctx.beginPath();
-      ctx.arc(x, y, p.radius, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Optional ring
-      if (p.hasRing) {
-        ctx.strokeStyle = `${p.color}88`;
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        ctx.ellipse(x, y, p.radius * 1.5, p.radius * 0.3, 0.3, 0, Math.PI * 2);
-        ctx.stroke();
-      }
-
-      ctx.restore();
-    }
-
-    // Layer 4: Deco objects (faster, 0.4)
-    if (cfg.deco?.enabled !== false) {
-      const sprites = bg.decoSrcs;
-      for (const d of bg.deco) {
-        const src = sprites[d.idx];
-        const img = this._imgCache.get(src);
-        if (!img || !img.complete || !img.naturalWidth) continue;
-
-        const x = d.x - camX * 0.4;
-        const y = d.y - camY * 0.4;
-        if (x < -300 || y < -300 || x > screenW + 300 || y > screenH + 300) continue;
-
-        ctx.save();
-        ctx.globalAlpha = d.a;
-        ctx.translate(x, y);
-        ctx.rotate(d.r);
-        ctx.scale(d.s, d.s);
-        ctx.drawImage(img, -img.naturalWidth / 2, -img.naturalHeight / 2);
-        ctx.restore();
-      }
-      ctx.globalAlpha = 1;
-    }
-
-    return true;
-  },
-
-  _drawStarLayer(ctx, stars, screenW, screenH, camX, camY, scrollSpeed, now) {
-    if (!stars) return;
-    
-    ctx.fillStyle = '#ffffff';
-    for (const star of stars) {
-      const x = ((star.x - camX * scrollSpeed) % screenW + screenW) % screenW;
-      const y = ((star.y - camY * scrollSpeed) % screenH + screenH) % screenH;
-      
-      let brightness = star.brightness;
-      if (star.twinkle) {
-        brightness *= 0.5 + Math.sin(now * 2 + star.x) * 0.5;
-      }
-      
-      ctx.globalAlpha = brightness;
-      ctx.beginPath();
-      ctx.arc(x, y, star.size, 0, Math.PI * 2);
-      ctx.fill();
-    }
-    ctx.globalAlpha = 1;
-  },
-
-  _lightenColor(hex, percent) {
-    const num = parseInt(hex.replace('#', ''), 16);
-    const r = Math.min(255, (num >> 16) + percent);
-    const g = Math.min(255, ((num >> 8) & 0x00FF) + percent);
-    const b = Math.min(255, (num & 0x0000FF) + percent);
-    return `rgb(${r},${g},${b})`;
   }
 };
 

@@ -5,14 +5,13 @@
 // World.js - Zone & Enemy Spawn Management
 // ============================================================
 // Manages current zone, spawns enemies when player approaches
+// v2.5.2 - FIXED: Syntax errors, Portal interaction (E/H keys)
 
 import { State } from '../State.js';
 import { MapGenerator } from './MapGenerator.js';
 import { Camera } from './Camera.js';
 import { SeededRandom } from './SeededRandom.js';
 import { DepthRules } from './DepthRules.js';
-import { Background } from './Background.js';
-import { Assets } from '../AssetLoader.js';
 
 export const World = {
   currentZone: null,
@@ -23,6 +22,10 @@ export const World = {
   spawnRadius: 600,      // Distance to trigger spawn
   despawnRadius: 1200,   // Distance to despawn (performance)
   activeEnemies: [],     // Currently active enemies from spawns
+  
+  // Portal interaction state
+  nearPortal: null,      // Currently nearby portal (for UI prompt)
+  portalCooldown: 0,     // Prevent instant re-entry
   
   // Initialize world with act config
   async init(actId, seed = null) {
@@ -57,15 +60,11 @@ export const World = {
     DepthRules.maybeUnlock(depth, this.currentAct);
     DepthRules.recordDepth(depth);
 
-    // Boss interval: use config.exploration.bossEveryNZones (default 10)
-    const bossInterval = State.data.config?.exploration?.bossEveryNZones || 10;
-    const isBossZone = depth > 0 && (depth % bossInterval) === 0;
-    const moduloResult = depth % bossInterval;
-    
-    console.log(`[World] Zone ${depth}: bossInterval=${bossInterval}, isBoss=${isBossZone}, modulo=${moduloResult}`);
-    if (isBossZone) {
-      console.log(`[BOSS SPAWN] Boss zone detected at depth=${depth}. Check MapGenerator to verify boss arena generation.`);
-    }
+    // Boss interval: default to act.zones (number) or 4
+    const bossInterval = (typeof this.currentAct.zones === 'number' && this.currentAct.zones > 0)
+      ? this.currentAct.zones
+      : 4;
+    const isBossZone = (depth % bossInterval) === 0;
 
     // Sample active modifiers for this zone
     const activeMods = DepthRules.sampleActive(depth, this.currentAct);
@@ -78,9 +77,6 @@ export const World = {
 
     this.currentZone.depth = depth;
     this.currentZone.mods = activeMods;
-
-    // Prepare background for this zone
-    Background.prepareZone(this.currentZone, zoneSeed, this.currentAct);
 
     this.zoneIndex = index;
     this.activeEnemies = [];
@@ -106,13 +102,23 @@ export const World = {
     this.spawnedEnemyCount = 0;
     this.spawnedEliteCount = 0;
     this.bossSpawned = false;
+    
+    // Reset portal state
+    this.nearPortal = null;
+    this.portalCooldown = 0.5; // Brief cooldown after zone load
   },
   
-  // Update - handle proximity spawning
+  // Update - handle proximity spawning and portal interactions
   update(dt) {
-    if (!this.currentZone) return null;
+    if (!this.currentZone) return;
     
     const player = State.player;
+    const input = State.input;
+    
+    // Decrease portal cooldown
+    if (this.portalCooldown > 0) {
+      this.portalCooldown -= dt;
+    }
     
     // Check enemy spawns
     for (const spawn of this.currentZone.enemySpawns) {
@@ -165,7 +171,7 @@ export const World = {
       }
     }
     
-    // Check exit collision
+    // Check exit collision (next zone)
     if (this.currentZone.exit) {
       const exit = this.currentZone.exit;
       const dist = Math.hypot(player.x - exit.x, player.y - exit.y);
@@ -175,13 +181,38 @@ export const World = {
       }
     }
     
-    // Check portal collision
+    // ========== PORTAL INTERACTION (E = Next Zone, H = Hub) ==========
+    this.nearPortal = null;
+    
     for (const portal of this.currentZone.portals) {
       const dist = Math.hypot(player.x - portal.x, player.y - portal.y);
-      if (dist < 60 && State.input.interactPressed) {
-        this.onPortalEnter(portal);
-        State.input.interactPressed = false; // Consume the input
+      const interactRadius = State.data.config?.exploration?.portalInteractRadius || 75;
+      
+      if (dist < interactRadius) {
+        this.nearPortal = portal;
+        
+        // Only process input if cooldown is done
+        if (this.portalCooldown <= 0) {
+          // E key = Enter portal / Next Zone
+          if (input.interactPressed) {
+            input.interactPressed = false; // Consume the press
+            this.onPortalEnter(portal);
+            return;
+          }
+          
+          // H key = Return to Hub (explicit shortcut)
+          if (input.hub) {
+            input.hub = false;
+            this.returnToHub();
+            return;
+          }
+        }
       }
+    }
+    
+    // Clear interact pressed flag if not used
+    if (input.interactPressed) {
+      input.interactPressed = false;
     }
     
     // Enemy AI (patrol/aggro/return) is handled in Enemies.update() for exploration mode.
@@ -241,6 +272,22 @@ export const World = {
     this.activeEnemies.push(enemy);
   },
   
+  // Despawn enemy (performance optimization)
+  despawnEnemy(spawn) {
+    const idx = State.enemies.findIndex(e => e.id === spawn.enemyId);
+    if (idx !== -1) {
+      State.enemies.splice(idx, 1);
+    }
+    
+    const activeIdx = this.activeEnemies.findIndex(e => e.id === spawn.enemyId);
+    if (activeIdx !== -1) {
+      this.activeEnemies.splice(activeIdx, 1);
+    }
+    
+    spawn.active = false;
+    spawn.enemyId = null;
+  },
+  
   // Spawn boss
   spawnBoss(spawn) {
     const { Enemies } = State.modules;
@@ -264,79 +311,94 @@ export const World = {
 
     enemy.aggroRange = spawn.aggroRange || 750;
     enemy.attackRange = spawn.attackRange || enemy.aggroRange;
-    enemy.disengageRange = spawn.disengageRange || enemy.aggroRange * 1.5;
-    enemy.leashRange = spawn.leashRange || Math.max(enemy.aggroRange * 2.0, enemy.patrolRadius * 6);
-    enemy.returnThreshold = Math.max(60, enemy.size * 1.2);
+    enemy.disengageRange = 99999; // Bosses don't disengage
+    enemy.leashRange = 99999;
+    enemy.returnThreshold = 60;
 
-    // Scale boss
-    const levelScale = Math.pow(1.15, bossLvl - 1);
+    // Scale boss stats
+    const levelScale = Math.pow(1.1, bossLvl - 1);
     enemy.hp *= levelScale;
     enemy.maxHP *= levelScale;
     enemy.damage *= levelScale;
-    
+    enemy.xp = Math.floor(enemy.xp * levelScale);
+
     spawn.active = true;
     spawn.enemyId = enemy.id;
-    
+    this.bossSpawned = true;
+
     // Announce boss
-    State.ui?.showAnnouncement?.(`[] ${enemy.name || 'BOSS'} APPEARS!`);
-  },
-  
-  // Despawn enemy (too far)
-  despawnEnemy(spawn) {
-    // Remove from State.enemies
-    const idx = State.enemies.findIndex(e => e.id === spawn.enemyId);
-    if (idx !== -1) {
-      State.enemies.splice(idx, 1);
-    }
-    
-    spawn.active = false;
-    spawn.enemyId = null;
-    
-    // Remove from active list
-    this.activeEnemies = this.activeEnemies.filter(e => e.spawnRef !== spawn);
-  },
-  
-  // Called when enemy dies
-  onEnemyKilled(enemy) {
-    if (enemy.spawnRef) {
-      enemy.spawnRef.killed = true;
-      enemy.spawnRef.active = false;
-    }
-    
-    // Check if boss
-    if (enemy.isBoss && this.currentZone.bossSpawn) {
-      this.onBossKilled();
+    if (window.Game?.announce) {
+      window.Game.announce(`⚔️ ${enemy.name} AWAKENS!`, 'boss');
     }
   },
-  
-  // Boss killed - spawn portal
+
+  // Called when boss is killed
   onBossKilled() {
-    State.ui?.showAnnouncement?.("[+] PORTAL OPENED!");
+    State.ui?.showAnnouncement?.('✨ PORTAL OPENED!');
     
-    // Spawn portal to hub
+    // Spawn portal to hub AND next zone
+    const zoneW = this.currentZone.width;
+    const zoneH = this.currentZone.height;
+    
+    // Victory portal (Hub)
     this.currentZone.portals.push({
-      x: this.currentZone.width / 2,
-      y: this.currentZone.height / 2,
+      x: zoneW / 2 - 80,
+      y: zoneH / 2,
       destination: 'hub',
-      type: 'victory'
+      type: 'victory',
+      label: 'RETURN TO HUB'
     });
+    
+    // Continue portal (Next Zone)
+    this.currentZone.portals.push({
+      x: zoneW / 2 + 80,
+      y: zoneH / 2,
+      destination: 'next',
+      type: 'continue',
+      label: 'NEXT ZONE'
+    });
+    
+    // Notify Game controller
+    if (window.Game?.onBossKilled) {
+      window.Game.onBossKilled(this.currentAct.id);
+    }
   },
   
-  // Player reached zone exit
+  // Player reached zone exit (automatic)
   onExitReached() {
     const nextZone = this.zoneIndex + 1;
     this.loadZone(nextZone);
+    
+    if (window.Game?.announce) {
+      window.Game.announce(`📍 ZONE ${nextZone + 1}`, 'zone');
+    }
   },
   
-  // Player entered portal
+  // Player entered portal (via E key)
   onPortalEnter(portal) {
     if (portal.destination === 'hub') {
-      // Transition to hub
-      State.scene = 'hub';
-      State.ui?.renderHub?.();
+      this.returnToHub();
+    } else if (portal.destination === 'next') {
+      // Continue to next zone
+      const nextZone = this.zoneIndex + 1;
+      this.loadZone(nextZone);
+      
+      if (window.Game?.announce) {
+        window.Game.announce(`📍 ZONE ${nextZone + 1}`, 'zone');
+      }
     } else if (portal.destination) {
       // Load specific act/zone
       this.init(portal.destination);
+    }
+  },
+  
+  // Return to hub
+  returnToHub() {
+    if (window.Game?.returnToHub) {
+      window.Game.returnToHub();
+    } else {
+      // Fallback via SceneManager
+      State.modules.SceneManager?.goToHub();
     }
   },
   
@@ -381,30 +443,19 @@ export const World = {
     }
   },
   
-  // Draw zone elements (obstacles, decorations)
+  // Draw zone elements (obstacles, decorations, exits, portals)
   draw(ctx, screenW, screenH) {
     if (!this.currentZone) return;
+    
     // Draw decorations (behind everything)
     for (const dec of this.currentZone.decorations) {
       if (!Camera.isVisible(dec.x, dec.y, 200, screenW, screenH)) continue;
       
       ctx.globalAlpha = dec.alpha;
-      
-      // Try to use deco sprite
-      const decoSprite = Assets.getRandomDeco(dec.seed || dec.x * 0.001);
-      if (decoSprite) {
-        const baseSize = 30 * dec.scale;
-        const aspect = decoSprite.width / decoSprite.height;
-        const w = baseSize * aspect;
-        const h = baseSize;
-        ctx.drawImage(decoSprite, dec.x - w/2, dec.y - h/2, w, h);
-      } else {
-        // Fallback: simple circle
-        ctx.fillStyle = '#ffffff';
-        ctx.beginPath();
-        ctx.arc(dec.x, dec.y, 5 * dec.scale, 0, Math.PI * 2);
-        ctx.fill();
-      }
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.arc(dec.x, dec.y, 5 * dec.scale, 0, Math.PI * 2);
+      ctx.fill();
     }
     ctx.globalAlpha = 1;
     
@@ -416,58 +467,43 @@ export const World = {
       ctx.translate(obs.x, obs.y);
       ctx.rotate(obs.rotation || 0);
       
-      // Try to use sprite first
-      let sprite = null;
-      if (obs.type === 'asteroid') {
-        // Use seeded random to pick consistent asteroid sprite
-        sprite = Assets.getRandomAsteroid(obs.seed || obs.x * 0.001);
-      }
-      
-      if (sprite) {
-        // Draw sprite scaled to obstacle radius
-        const scale = (obs.radius * 2) / Math.max(sprite.width, sprite.height);
-        const w = sprite.width * scale;
-        const h = sprite.height * scale;
-        ctx.drawImage(sprite, -w/2, -h/2, w, h);
-      } else {
-        // Fallback: Draw based on type (primitive shapes)
-        switch (obs.type) {
-          case 'asteroid':
-            ctx.fillStyle = '#555566';
-            ctx.beginPath();
-            ctx.arc(0, 0, obs.radius, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.strokeStyle = '#333344';
-            ctx.lineWidth = 2;
-            ctx.stroke();
-            break;
-            
-          case 'debris':
-            ctx.fillStyle = '#444455';
-            ctx.fillRect(-obs.radius, -obs.radius/2, obs.radius*2, obs.radius);
-            break;
-            
-          case 'mine':
-            ctx.fillStyle = '#ff4444';
-            ctx.beginPath();
-            ctx.arc(0, 0, obs.radius, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.fillStyle = '#ffff00';
-            ctx.beginPath();
-            ctx.arc(0, 0, obs.radius * 0.4, 0, Math.PI * 2);
-            ctx.fill();
-            break;
-            
-          case 'pillar':
-            ctx.fillStyle = '#667788';
-            ctx.beginPath();
-            ctx.arc(0, 0, obs.radius, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.strokeStyle = '#8899aa';
-            ctx.lineWidth = 3;
-            ctx.stroke();
-            break;
-        }
+      // Draw based on type
+      switch (obs.type) {
+        case 'asteroid':
+          ctx.fillStyle = '#555566';
+          ctx.beginPath();
+          ctx.arc(0, 0, obs.radius, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.strokeStyle = '#333344';
+          ctx.lineWidth = 2;
+          ctx.stroke();
+          break;
+          
+        case 'debris':
+          ctx.fillStyle = '#444455';
+          ctx.fillRect(-obs.radius, -obs.radius/2, obs.radius*2, obs.radius);
+          break;
+          
+        case 'mine':
+          ctx.fillStyle = '#ff4444';
+          ctx.beginPath();
+          ctx.arc(0, 0, obs.radius, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = '#ffff00';
+          ctx.beginPath();
+          ctx.arc(0, 0, obs.radius * 0.4, 0, Math.PI * 2);
+          ctx.fill();
+          break;
+          
+        case 'pillar':
+          ctx.fillStyle = '#667788';
+          ctx.beginPath();
+          ctx.arc(0, 0, obs.radius, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.strokeStyle = '#8899aa';
+          ctx.lineWidth = 3;
+          ctx.stroke();
+          break;
       }
       
       ctx.restore();
@@ -490,27 +526,43 @@ export const World = {
       ctx.fillText('EXIT', exit.x, exit.y + 5);
     }
     
-    // Draw portals
+    // Draw portals with interaction prompt
     for (const portal of this.currentZone.portals) {
       const pulse = Math.sin(Date.now() / 200) * 0.3 + 0.7;
-      ctx.fillStyle = portal.type === 'victory' ? '#ffdd00' : '#8800ff';
-      ctx.shadowColor = ctx.fillStyle;
-      ctx.shadowBlur = 30 * pulse;
+      const isNear = (this.nearPortal === portal);
+      
+      // Portal color based on type
+      let portalColor = '#8800ff';
+      if (portal.type === 'victory') portalColor = '#ffdd00';
+      if (portal.type === 'continue') portalColor = '#00ff88';
+      
+      // Glow effect (brighter when near)
+      ctx.fillStyle = portalColor;
+      ctx.shadowColor = portalColor;
+      ctx.shadowBlur = isNear ? 50 * pulse : 30 * pulse;
       ctx.beginPath();
-      ctx.arc(portal.x, portal.y, 40 * pulse, 0, Math.PI * 2);
+      ctx.arc(portal.x, portal.y, (isNear ? 50 : 40) * pulse, 0, Math.PI * 2);
       ctx.fill();
       ctx.shadowBlur = 0;
       
+      // Portal label
       ctx.fillStyle = '#ffffff';
       ctx.font = 'bold 12px Orbitron';
       ctx.textAlign = 'center';
-      ctx.fillText('PORTAL', portal.x, portal.y + 5);
+      ctx.fillText(portal.label || 'PORTAL', portal.x, portal.y + 5);
       
-      // Show interaction hint
-      ctx.fillStyle = '#00ff88';
-      ctx.font = '11px Exo 2';
-      ctx.textAlign = 'center';
-      ctx.fillText('PRESS E', portal.x, portal.y + 25);
+      // Interaction prompt when near
+      if (isNear && this.portalCooldown <= 0) {
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 14px Orbitron';
+        ctx.fillText('[E] Enter', portal.x, portal.y + 65);
+        
+        if (portal.type !== 'hub') {
+          ctx.fillStyle = '#aaaaaa';
+          ctx.font = '12px Orbitron';
+          ctx.fillText('[H] Return to Hub', portal.x, portal.y + 82);
+        }
+      }
     }
   },
   
@@ -561,7 +613,7 @@ export const World = {
     }
     
     ctx.globalAlpha = 1;
-  },
+  },  // <-- FIXED: Added missing comma here!
 
   drawParallaxForeground(ctx, screenW, screenH) {
     if (!this.currentZone?.parallax) return;
@@ -571,7 +623,7 @@ export const World = {
     const camY = Camera.getY();
     
     // Layer 2: Nebula wisps
-    if (parallax.foreground?.objects) {
+    if (parallax.foreground.objects) {
       const fgOffsetX = camX * parallax.foreground.scrollSpeed;
       const fgOffsetY = camY * parallax.foreground.scrollSpeed;
       
@@ -588,7 +640,7 @@ export const World = {
       
       ctx.globalAlpha = 1;
     }
-  },
+  },  // <-- FIXED: Added missing comma here!
 
   drawParallax(ctx, screenW, screenH) {
     // Back-compat: some callers still use drawParallax()

@@ -4,6 +4,7 @@
 // ============================================================
 // Camera.js - Player-Centered Camera System
 // ============================================================
+// v2.5.2 - FIXED: Inner 1/3 deadzone, player can reach map edges
 // Follows player with smooth lerp, handles map boundaries
 
 import { State } from '../State.js';
@@ -15,11 +16,9 @@ export const Camera = {
   targetY: 0,
   
   // Config (can be overridden from config.json)
-  smoothing: 0.15,      // Faster follow to keep player centered (increased from 0.08)
-  deadzone: 20,         // Tighter deadzone for centered feel
-  lookahead: 0,         // Look ahead in movement direction
-  zoom: 1.0,            // Camera zoom level (1.0 = normal, <1.0 = zoom out)
-  keepCentered: true,   // Keep player in center third of screen
+  smoothing: 0.06,        // Lower = smoother/slower follow (was 0.08)
+  innerZoneFactor: 0.33,  // Player stays in inner 1/3 of screen
+  lookahead: 0.15,        // Look ahead in movement direction (% of speed)
   shake: { x: 0, y: 0, intensity: 0, duration: 0 },
   
   // Initialize camera
@@ -28,49 +27,98 @@ export const Camera = {
     this.y = startY;
     this.targetX = startX;
     this.targetY = startY;
-    
-    // Load zoom from config
-    const zoom = State.data?.config?.exploration?.cameraZoom;
-    if (typeof zoom === 'number' && isFinite(zoom) && zoom > 0) {
-      this.zoom = zoom;
-    }
-    
     this.shake = { x: 0, y: 0, intensity: 0, duration: 0 };
   },
   
-  // Update camera position
+  // Update camera position - REWORKED for inner-1/3 behavior
   update(dt, screenWidth, screenHeight) {
     const player = State.player;
     const map = State.world?.currentZone;
     
     if (!player) return;
     
-    // Target = player center
-    this.targetX = player.x - screenWidth / 2;
-    this.targetY = player.y - screenHeight / 2;
+    // Calculate inner zone boundaries (1/3 of screen centered)
+    const innerMarginX = screenWidth * this.innerZoneFactor;
+    const innerMarginY = screenHeight * this.innerZoneFactor;
     
-    // Optional: Look ahead based on velocity
-    if (this.lookahead > 0) {
-      this.targetX += player.vx * this.lookahead;
-      this.targetY += player.vy * this.lookahead;
+    // Player position in screen space
+    const playerScreenX = player.x - this.x;
+    const playerScreenY = player.y - this.y;
+    
+    // Inner zone boundaries
+    const innerLeft = innerMarginX;
+    const innerRight = screenWidth - innerMarginX;
+    const innerTop = innerMarginY;
+    const innerBottom = screenHeight - innerMarginY;
+    
+    // Only move camera if player is outside inner zone
+    let needsMoveX = false;
+    let needsMoveY = false;
+    let targetOffsetX = 0;
+    let targetOffsetY = 0;
+    
+    if (playerScreenX < innerLeft) {
+      targetOffsetX = playerScreenX - innerLeft;
+      needsMoveX = true;
+    } else if (playerScreenX > innerRight) {
+      targetOffsetX = playerScreenX - innerRight;
+      needsMoveX = true;
     }
     
+    if (playerScreenY < innerTop) {
+      targetOffsetY = playerScreenY - innerTop;
+      needsMoveY = true;
+    } else if (playerScreenY > innerBottom) {
+      targetOffsetY = playerScreenY - innerBottom;
+      needsMoveY = true;
+    }
+    
+    // Apply lookahead based on velocity (helps with edge navigation)
+    const lookaheadX = player.vx * this.lookahead;
+    const lookaheadY = player.vy * this.lookahead;
+    
+    // Calculate target camera position
+    this.targetX = this.x + targetOffsetX + lookaheadX * dt * 2;
+    this.targetY = this.y + targetOffsetY + lookaheadY * dt * 2;
+    
     // Clamp to map boundaries if map exists
+    // This ensures player can ALWAYS reach the edge of the map
     if (map) {
       const mapW = map.width || 2000;
       const mapH = map.height || 2000;
-      this.targetX = Math.max(0, Math.min(mapW - screenWidth, this.targetX));
-      this.targetY = Math.max(0, Math.min(mapH - screenHeight, this.targetY));
+      
+      // Camera cannot go negative
+      this.targetX = Math.max(0, this.targetX);
+      this.targetY = Math.max(0, this.targetY);
+      
+      // Camera cannot show beyond map edges
+      // BUT: if map is smaller than screen, center it
+      if (mapW <= screenWidth) {
+        this.targetX = (mapW - screenWidth) / 2;
+      } else {
+        this.targetX = Math.min(mapW - screenWidth, this.targetX);
+      }
+      
+      if (mapH <= screenHeight) {
+        this.targetY = (mapH - screenHeight) / 2;
+      } else {
+        this.targetY = Math.min(mapH - screenHeight, this.targetY);
+      }
     }
     
-    // Smooth follow (lerp)
+    // Smooth interpolation toward target
     const dx = this.targetX - this.x;
     const dy = this.targetY - this.y;
     
-    // Only move if outside deadzone
-    if (Math.abs(dx) > this.deadzone || Math.abs(dy) > this.deadzone) {
-      this.x += dx * this.smoothing;
-      this.y += dy * this.smoothing;
+    // Faster catch-up when player is moving fast (prevents "sticky" feeling)
+    const playerSpeed = Math.hypot(player.vx, player.vy);
+    const dynamicSmoothing = this.smoothing * (1 + playerSpeed / 500);
+    
+    if (needsMoveX || Math.abs(dx) > 2) {
+      this.x += dx * Math.min(1, dynamicSmoothing + dt * 3);
+    }
+    if (needsMoveY || Math.abs(dy) > 2) {
+      this.y += dy * Math.min(1, dynamicSmoothing + dt * 3);
     }
     
     // Screen shake
@@ -96,17 +144,7 @@ export const Camera = {
   
   // Apply camera transform to context
   applyTransform(ctx) {
-    const centerX = -this.getX();
-    const centerY = -this.getY();
-    ctx.translate(centerX, centerY);
-    // Apply zoom (center the zoom on player)
-    if (this.zoom !== 1.0) {
-      ctx.scale(this.zoom, this.zoom);
-      // Adjust position to keep player centered when zoomed
-      const offsetX = (1 / this.zoom - 1) * (this.getX() + 400);
-      const offsetY = (1 / this.zoom - 1) * (this.getY() + 300);
-      ctx.translate(-offsetX, -offsetY);
-    }
+    ctx.translate(-this.getX(), -this.getY());
   },
   
   // Reset transform
