@@ -4,25 +4,28 @@
 // ============================================================
 // Player.js - Player Controller (Desktop)
 // ============================================================
+// v2.5.2 - FIXED: Removed duplicate DOT blocks, cleaner code
 
 import { State } from './State.js';
 import { Input } from './Input.js';
 import { Bullets } from './Bullets.js';
 import { Particles } from './Particles.js';
-import { Assets } from './AssetLoader.js';
 
 export const Player = {
   
   update(dt, canvas, explorationMode = false) {
     const p = State.player;
     const cfg = State.data.config?.player || {};
-    // ========== CORRUPTION DOT ==========
+    
+    // ========== CORRUPTION DOT (v0) - SINGLE INSTANCE ==========
     if (p.dotT && p.dotT > 0) {
       p.dotT -= dt;
       this.takeDamage(p.maxHP * (p.dotPct || 0) * dt);
-      if (p.dotT <= 0) { p.dotT = 0; p.dotPct = 0; }
+      if (p.dotT <= 0) { 
+        p.dotT = 0; 
+        p.dotPct = 0; 
+      }
     }
-
     
     // ========== MOVEMENT (WASD) ==========
     const move = Input.getMovement();
@@ -61,25 +64,6 @@ export const Player = {
         p.x = Math.max(margin, Math.min(zone.width - margin, p.x));
         p.y = Math.max(margin, Math.min(zone.height - margin, p.y));
       }
-      
-      // Keep player in center third of screen (spongy boundary)
-      const screenW = canvas.width;
-      const screenH = canvas.height;
-      const centerThirdW = screenW / 3;
-      const centerThirdH = screenH / 3;
-      const camX = State.modules?.Camera?.getX?.() || 0;
-      const camY = State.modules?.Camera?.getY?.() || 0;
-      
-      const screenCenterX = camX + screenW / 2;
-      const screenCenterY = camY + screenH / 2;
-      
-      const minX = screenCenterX - centerThirdW / 2;
-      const maxX = screenCenterX + centerThirdW / 2;
-      const minY = screenCenterY - centerThirdH / 2;
-      const maxY = screenCenterY + centerThirdH / 2;
-      
-      p.x = Math.max(minX, Math.min(maxX, p.x));
-      p.y = Math.max(minY, Math.min(maxY, p.y));
     } else {
       // Wave mode: clamp to canvas boundaries
       p.x = Math.max(margin, Math.min(canvas.width - margin, p.x));
@@ -111,8 +95,7 @@ export const Player = {
     // ========== SHIELD REGEN ==========
     p.shieldRegenDelay -= dt;
     if (p.shieldRegenDelay <= 0 && p.shield < p.maxShield) {
-      const cfg = State.data.config?.player;
-      const regenRate = cfg?.shieldRegenRate || 5;
+      const regenRate = cfg.shieldRegenRate || 5;
       p.shield = Math.min(p.maxShield, p.shield + regenRate * dt);
     }
   },
@@ -151,9 +134,6 @@ export const Player = {
     
     // Muzzle flash
     Particles.spawn(p.x + Math.cos(p.angle) * 22, p.y + Math.sin(p.angle) * 22, 'muzzle');
-    
-    // Shooting sound
-    State.modules.Audio?.playShoot(true, p.x, p.y);
   },
   
   takeDamage(amount) {
@@ -166,16 +146,10 @@ export const Player = {
       p.shield -= shieldDmg;
       amount -= shieldDmg;
       
-      // Shield hit sound
-      State.modules.Audio?.play('shield_hit', { x: p.x, y: p.y });
-      
       if (amount <= 0) {
         p.shieldRegenDelay = State.data.config?.player?.shieldRegenDelay || 3;
         return;
       }
-      
-      // Shield broke - remaining damage goes to HP
-      State.modules.Audio?.play('shield_break', { x: p.x, y: p.y });
     }
     
     p.hp -= amount;
@@ -184,14 +158,9 @@ export const Player = {
     // Hit particles
     Particles.spawn(p.x, p.y, 'playerHit');
     
-    // Player hit sound
-    State.modules.Audio?.playHit(true, p.x, p.y);
-    
     if (p.hp <= 0) {
       p.hp = 0;
       Particles.spawn(p.x, p.y, 'explosion');
-      // Death sound
-      State.modules.Audio?.playDeath('player', p.x, p.y);
     }
   },
   
@@ -209,47 +178,38 @@ export const Player = {
   
   draw(ctx) {
     const p = State.player;
-    const sprite = Assets.get('player_ship');
     
     ctx.save();
     ctx.translate(p.x, p.y);
     ctx.rotate(p.angle + Math.PI / 2); // Ship sprite points up
     
-    // Try to draw sprite, fallback to shape
-    if (sprite) {
-      const scale = 0.15; // Scaled down to match hitbox
-      const w = sprite.width * scale;
-      const h = sprite.height * scale;
-      ctx.drawImage(sprite, -w/2, -h/2, w, h);
-    } else {
-      // Fallback: Ship body (primitive shape) - scaled to 1/5 size
-      ctx.beginPath();
-      ctx.moveTo(0, -4);
-      ctx.lineTo(-2.8, 3.2);
-      ctx.lineTo(0, 2);
-      ctx.lineTo(2.8, 3.2);
-      ctx.closePath();
-      
-      // Gradient fill
-      const grad = ctx.createLinearGradient(0, -20, 0, 16);
-      grad.addColorStop(0, '#00ffaa');
-      grad.addColorStop(1, '#005544');
-      ctx.fillStyle = grad;
-      ctx.fill();
-      
-      // Outline
-      ctx.strokeStyle = '#00ff88';
-      ctx.lineWidth = 2;
-      ctx.stroke();
-    }
+    // Ship body
+    ctx.beginPath();
+    ctx.moveTo(0, -20);
+    ctx.lineTo(-14, 16);
+    ctx.lineTo(0, 10);
+    ctx.lineTo(14, 16);
+    ctx.closePath();
+    
+    // Gradient fill
+    const grad = ctx.createLinearGradient(0, -20, 0, 16);
+    grad.addColorStop(0, '#00ffaa');
+    grad.addColorStop(1, '#005544');
+    ctx.fillStyle = grad;
+    ctx.fill();
+    
+    // Outline
+    ctx.strokeStyle = '#00ff88';
+    ctx.lineWidth = 2;
+    ctx.stroke();
     
     // Engine glow when moving
     const isMoving = Math.abs(p.vx) > 10 || Math.abs(p.vy) > 10;
     if (isMoving) {
       ctx.beginPath();
-      ctx.moveTo(-1.6, 2.8);
-      ctx.lineTo(0, 5.2 + Math.random() * 1.2);
-      ctx.lineTo(1.6, 2.8);
+      ctx.moveTo(-8, 14);
+      ctx.lineTo(0, 26 + Math.random() * 6);
+      ctx.lineTo(8, 14);
       ctx.fillStyle = `rgba(0, 200, 255, ${0.6 + Math.random() * 0.4})`;
       ctx.fill();
     }
@@ -263,6 +223,17 @@ export const Player = {
       ctx.strokeStyle = `rgba(0, 200, 255, ${0.2 + (p.shield / p.maxShield) * 0.3})`;
       ctx.lineWidth = 3;
       ctx.stroke();
+    }
+    
+    // DOT indicator (corruption effect)
+    if (p.dotT > 0) {
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.radius + 12, 0, Math.PI * 2);
+      ctx.strokeStyle = `rgba(200, 100, 50, ${0.4 + Math.sin(Date.now() / 100) * 0.2})`;
+      ctx.lineWidth = 2;
+      ctx.setLineDash([4, 4]);
+      ctx.stroke();
+      ctx.setLineDash([]);
     }
   }
 };

@@ -1,6 +1,13 @@
+// Copyright (c) Manfred Foissner. All rights reserved.
+// License: See LICENSE.txt in the project root.
+
+// ============================================================
+// ENEMIES.js - Enemy System
+// ============================================================
+
 import { State } from './State.js';
 
-// Lightweight sprite cache fallback (for backwards compatibility)
+// Lightweight sprite cache (no global asset pipeline required)
 const _spriteCache = {};
 function getSprite(path) {
   if (!path) return null;
@@ -70,19 +77,15 @@ export const Enemies = {
             lastAngle: 0
           };
           // Sprite: asset is 'nose up', so +PI/2 rotation offset in draw()
-          // Sprite removed - use fallback shape
-          enemy.spritePath = null;
+          enemy.spritePath = './enemy_sniper.png';
           enemy.spriteRotOffset = Math.PI / 2;
         }
     
         if (enemy.abilities.includes('corruptDot')) {
-          // Sprite removed - use fallback shape
-          enemy.spritePath = null;
+          enemy.spritePath = './enemy_corrupted_spawn.png';
           // Sprite: asset is 'nose right'
           enemy.spriteRotOffset = 0;
           enemy.dot = (enemyData && enemyData.dot) ? enemyData.dot : { duration: 4.0, tick: 0.5, dpsPctMaxHp: 0.01 };
-          // Audio tracking for cleanup
-          enemy.dotSoundActive = false;
         }
     
         
@@ -97,7 +100,7 @@ if (enemy.abilities.includes('repairTether')) {
     healPctMaxHpPerSec: (typeof r.healPctMaxHpPerSec === 'number') ? r.healPctMaxHpPerSec : 0.03,
     capPctMaxHpPerSec: (typeof r.capPctMaxHpPerSec === 'number') ? r.capPctMaxHpPerSec : 0.04
   };
-  enemy.tether = { targetId: null, soundActive: false };
+  enemy.tether = { targetId: null };
   enemy.orbit = { t: 0, radius: 90 };
 }
 State.enemies.push(enemy);
@@ -408,12 +411,6 @@ updateRepairDroneAI(e, dt, zone) {
 
   if (best) {
     e.tether.targetId = best.id;
-    
-    // Start tether sound if not already playing
-    if (!e.tether.soundActive) {
-      e.tether.soundActive = true;
-      State.modules?.Audio?.play('repair_tether', { x: e.x, y: e.y });
-    }
 
     // Orbit near target
     e.orbit.t += dt;
@@ -445,11 +442,6 @@ updateRepairDroneAI(e, dt, zone) {
   }
 
   // No target: behave like normal patrol/aggro drift (fallback)
-  // Stop tether sound if was playing
-  if (e.tether.soundActive) {
-    State.modules?.Audio?.stopSoundById('repair_tether');
-    e.tether.soundActive = false;
-  }
   e.tether.targetId = null;
   // Light drift toward player to stay relevant
   const dx = p.x - e.x;
@@ -570,22 +562,14 @@ updateExplorationShooting(e, dt) {
     const angle = Math.atan2(dy, dx) + (Math.random() - 0.5) * 0.2;
     const speed = 280;
     
-    const hasDot = e.abilities && e.abilities.includes("corruptDot");
-    
     State.enemyBullets.push({
       x: e.x, y: e.y + e.size / 2,
       vx: Math.cos(angle) * speed,
       vy: Math.sin(angle) * speed,
       damage: e.damage,
       size: e.isBoss ? 8 : 5,
-      dot: hasDot ? (e.dot || { duration: 4.0, tick: 0.5, dpsPctMaxHp: 0.01 }) : null
+      dot: (e.abilities && e.abilities.includes("corruptDot")) ? (e.dot || { duration: 4.0, tick: 0.5, dpsPctMaxHp: 0.01 }) : null
     });
-    
-    // Play DOT sound when shooting DOT bullet
-    if (hasDot && !e.dotSoundActive) {
-      e.dotSoundActive = true;
-      State.modules?.Audio?.play('corruption_dot', { x: e.x, y: e.y });
-    }
   },
   
   // Damage an enemy
@@ -594,9 +578,6 @@ updateExplorationShooting(e, dt) {
     
     enemy.hp -= amount;
     State.run.stats.damageDealt += amount;
-    
-    // Hit sound
-    State.modules?.Audio?.playHit(false, enemy.x, enemy.y);
     
     // Hit particles
     for (let i = 0; i < (isCrit ? 10 : 5); i++) {
@@ -624,20 +605,6 @@ updateExplorationShooting(e, dt) {
     State.run.stats.kills++;
     if (enemy.isElite) State.run.stats.eliteKills++;
     if (enemy.isBoss) State.run.stats.bossKills++;
-    
-    // Clean up looping sounds on death
-    if (enemy.abilities && enemy.abilities.includes('corruptDot') && enemy.dotSoundActive) {
-      State.modules?.Audio?.stopSoundById('corruption_dot');
-      enemy.dotSoundActive = false;
-    }
-    if (enemy.abilities && enemy.abilities.includes('repairTether') && enemy.tether?.soundActive) {
-      State.modules?.Audio?.stopSoundById('repair_tether');
-      enemy.tether.soundActive = false;
-    }
-    
-    // Death sound
-    const deathType = enemy.isBoss ? 'boss' : 'enemy';
-    State.modules?.Audio?.playDeath(deathType, enemy.x, enemy.y);
     
     // Notify World system (for exploration mode spawn tracking)
     const World = State.modules?.World;

@@ -4,6 +4,7 @@
 // ============================================================
 // Input.js - Desktop Input (WASD + Mouse)
 // ============================================================
+// v2.5.2 - ADDED: H key for Hub return, improved interact handling
 
 import { State } from './State.js';
 
@@ -70,19 +71,19 @@ export const Input = {
         if (!input.interact) input.interactPressed = true;
         input.interact = true;
         break;
+      case 'KeyH':
+        // H = Return to Hub (edge-triggered)
+        if (!input.hub) input.hubPressed = true;
+        input.hub = true;
+        break;
       case 'ShiftLeft':
       case 'ShiftRight':
         input.shift = true;
         break;
-      case 'KeyP':
-        // Pause toggle (only once per key press)
-        if (!input.pausePressed) input.pausePressed = true;
-        input.pause = true;
-        break;
-      case 'KeyI':
-        // Inventory toggle (only once per key press)
-        if (!input.inventoryPressed) input.inventoryPressed = true;
-        input.inventory = true;
+      case 'Escape':
+        // Toggle pause
+        if (!input.escape) input.escapePressed = true;
+        input.escape = true;
         break;
     }
   },
@@ -112,19 +113,16 @@ export const Input = {
         break;
       case 'KeyE':
         input.interact = false;
-        input.interactPressed = false;
+        break;
+      case 'KeyH':
+        input.hub = false;
         break;
       case 'ShiftLeft':
       case 'ShiftRight':
         input.shift = false;
         break;
-      case 'KeyP':
-        input.pause = false;
-        input.pausePressed = false;
-        break;
-      case 'KeyI':
-        input.inventory = false;
-        input.inventoryPressed = false;
+      case 'Escape':
+        input.escape = false;
         break;
     }
   },
@@ -174,6 +172,13 @@ export const Input = {
     const mx = State.input.mouseX;
     const my = State.input.mouseY;
     return Math.atan2(my - playerY, mx - playerX);
+  },
+  
+  // Clear edge-triggered flags (call at end of frame)
+  clearEdgeTriggers() {
+    State.input.interactPressed = false;
+    State.input.hubPressed = false;
+    State.input.escapePressed = false;
   }
 };
 

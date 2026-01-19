@@ -4,6 +4,7 @@
 // ============================================================
 // State.js - Single Source of Truth
 // ============================================================
+// v2.5.2 - ADDED: hub/escape input flags for portal interaction
 
 export const State = {
   // Loaded JSON data
@@ -120,25 +121,34 @@ export const State = {
     
     // Cooldowns
     fireCooldown: 0,
-    shieldRegenDelay: 0
+    shieldRegenDelay: 0,
+    
+    // DOT tracking
+    dotT: 0,
+    dotPct: 0
   },
   
-  // Input state
+  // Input state - EXPANDED for portal interaction
   input: {
     up: false,
     down: false,
     left: false,
     right: false,
     fire: false,
+    
     // Interaction (portals, terminals, etc.)
-    interact: false,
-    interactPressed: false,
+    interact: false,        // E key held
+    interactPressed: false, // E key just pressed (edge-trigger)
+    
+    // Hub return shortcut
+    hub: false,             // H key held
+    hubPressed: false,      // H key just pressed (edge-trigger)
+    
+    // Pause/Menu
+    escape: false,          // ESC key held
+    escapePressed: false,   // ESC key just pressed (edge-trigger)
+    
     shift: false,
-    // UI toggles
-    pause: false,
-    pausePressed: false,
-    inventory: false,
-    inventoryPressed: false,
     mouseX: 0,
     mouseY: 0
   },
@@ -154,7 +164,8 @@ export const State = {
   ui: {
     paused: false,
     tooltip: null,
-    selectedItem: null
+    selectedItem: null,
+    levelUp: null  // Set to level number on level-up for UI notification
   }
 };
 
@@ -201,6 +212,8 @@ export function resetPlayer(canvasW, canvasH) {
   State.player.angle = -Math.PI / 2; // Point up
   State.player.fireCooldown = 0;
   State.player.shieldRegenDelay = 0;
+  State.player.dotT = 0;
+  State.player.dotPct = 0;
 }
 
 export default State;
